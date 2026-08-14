@@ -1,0 +1,9 @@
+{
+  "name": "el-systema-cellnoise",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "SITES_DEFAULT_DOCUMENT=public/launch-20260524c.html node sites-build.mjs"
+  }
+}

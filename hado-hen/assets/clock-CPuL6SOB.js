@@ -1,0 +1,1 @@
+(function(){"use strict";let e;self.onmessage=s=>{const t=s.data;t.type==="start"?(e&&clearInterval(e),e=setInterval(()=>self.postMessage("tick"),t.interval??40)):t.type==="stop"&&(e&&clearInterval(e),e=void 0)}})();

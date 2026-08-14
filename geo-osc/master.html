@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EL-SYSTEMA · Master</title>
+<link rel="icon" href="data:," />
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#04080a;color:#cfe8d0;
+    font:11px/1.45 ui-monospace,Menlo,monospace;letter-spacing:.03em;overflow:hidden}
+  #bg{position:absolute;inset:0;z-index:0}
+  .wrap{position:relative;z-index:1;display:flex;flex-direction:column;height:100%}
+  .top{display:flex;align-items:center;gap:14px;padding:8px 12px;background:linear-gradient(#04080aee,#04080a88)}
+  .brand{color:#d0ff5a;letter-spacing:.24em;font-weight:700}
+  .oled{margin-left:auto;background:#071012;border:1px solid #1d3a34;border-radius:3px;
+    padding:5px 10px;color:#7fe8ff;min-width:260px;text-align:right}
+  .page-tabs{display:flex;gap:4px}
+  .page-tabs button{background:#0a1418;color:#6fa588;border:1px solid #1d3a34;padding:4px 9px;border-radius:3px;cursor:pointer;font:inherit}
+  .page-tabs button.on{border-color:#d0ff5a;color:#d0ff5a}
+  select,.mini{background:#0a1418;color:#9fe8c0;border:1px solid #1d3a34;padding:3px 6px;border-radius:3px;font:inherit}
+  button.arm{background:#0a1418;color:#9fe8c0;border:1px solid #1d3a34;padding:4px 10px;border-radius:3px;cursor:pointer;font:inherit}
+  button.arm.on{border-color:#d0ff5a;color:#d0ff5a}
+  .transport button{width:30px;height:26px;margin-left:2px}
+  .transport button.active{border-color:#d0ff5a;color:#d0ff5a}
+  .strips{display:flex;flex:1;gap:6px;padding:8px 12px 6px}
+  .strip{flex:1;display:flex;flex-direction:column;gap:5px;background:#070f1266;border:1px solid #10241f;border-radius:5px;padding:7px 6px}
+  .strip .idx{color:#4f7f66;letter-spacing:.14em}
+  .strip select{width:100%;font-size:10px;padding:2px}
+  .enc{position:relative;height:30px;background:#0a1418;border:1px solid #16302b;border-radius:3px;overflow:hidden;cursor:ns-resize}
+  .enc .lab{position:absolute;left:4px;top:2px;color:#5f8f6a;font-size:9px;z-index:2}
+  .enc .val{position:absolute;right:4px;bottom:2px;color:#9fe8c0;font-size:10px;z-index:2}
+  .enc .bar{position:absolute;left:0;bottom:0;top:0;background:#123;border-right:2px solid #d0ff5a}
+  .fader{position:relative;flex:1;min-height:60px;background:#0a1418;border:1px solid #16302b;border-radius:3px;cursor:ns-resize;overflow:hidden}
+  .fader .fill{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(rgba(0,221,51,0.68),rgba(0,119,34,0.68))}
+  .fader .flab{position:absolute;left:4px;top:3px;color:#5f8f6a;font-size:9px;z-index:2}
+  .meter{position:absolute;right:2px;top:2px;bottom:2px;width:4px;background:#061;z-index:2}
+  .meter i{position:absolute;left:0;right:0;bottom:0;background:#d0ff5a}
+  .btns{display:flex;gap:4px}
+  .btns button{flex:1;background:#0a1418;color:#6fa588;border:1px solid #1d3a34;border-radius:3px;padding:4px 0;cursor:pointer;font:inherit;font-size:10px}
+  .btns button.on{border-color:#d0ff5a;color:#d0ff5a;background:#0c1c14}
+  .btns button.latch.on{border-color:#7fe8ff;color:#7fe8ff}
+  .foot{display:flex;gap:14px;align-items:center;padding:4px 12px 8px;color:#4f7f66}
+  .caps{display:flex;gap:4px;flex-wrap:wrap}
+  .caps button{background:#0a1418;color:#7fe8ff;border:1px solid #1d3a34;border-radius:3px;padding:2px 7px;cursor:pointer;font:inherit}
+  a{color:#7fe8ff}
+  .scorelane{position:relative;z-index:1;height:112px;margin:0 12px 3px;background:#060d10cc;border:1px solid #10241f;border-radius:5px;display:flex;flex-direction:column;overflow:hidden}
+  .scorehead{display:flex;align-items:center;gap:8px;padding:4px 8px;color:#7fae90;font-size:10px}
+  .scorehead .glabel{color:#d0ff5a;letter-spacing:.16em;font-weight:700}
+  .scorehead button{background:#0a1418;color:#9fe8c0;border:1px solid #1d3a34;border-radius:3px;padding:2px 8px;cursor:pointer;font:inherit}
+  .scorehead button.on{border-color:#d0ff5a;color:#d0ff5a}
+  #score{flex:1;width:100%;display:block;cursor:crosshair}
+  .fieldbar{position:relative;z-index:1;display:flex;align-items:stretch;gap:7px;margin:0 12px 4px;padding:6px 8px;background:#060d10cc;border:1px solid #123a30;border-radius:5px}
+  .fieldbar .ftitle{display:flex;flex-direction:column;justify-content:center;color:#7fe8ff;letter-spacing:.14em;font-weight:700;min-width:62px}
+  .fieldbar .ftitle small{color:#4f7f66;font-weight:400;letter-spacing:.04em;font-size:8px}
+  .fcells{display:flex;gap:5px;flex:1;flex-wrap:wrap;align-content:flex-start}
+  .fcell{position:relative;width:76px;min-height:38px;background:#0a1418;border:1px solid #16302b;border-radius:3px;padding:3px 5px;cursor:ns-resize;overflow:hidden}
+  .fcell>span{position:relative;z-index:2;display:block}
+  .fcell .fn{color:#6fa588;font-size:9px;letter-spacing:.02em}
+  .fcell .fv{color:#9fe8c0;font-size:11px}
+  .fcell .fb{position:absolute;left:0;bottom:0;top:0;background:#0e2a24;border-right:2px solid #7fe8ff;z-index:1}
+  .fcell.mot{border-color:#26473f}
+  .fcell.mot .fn{color:#8fbfa0}
+  .fcell.mot .fb{background:#132a1a;border-right-color:#d0ff5a}
+  .fcell select{position:relative;z-index:2;width:100%;background:#08120f;color:#7fe8ff;border:1px solid #16302b;border-radius:2px;font:inherit;font-size:9px;margin-top:2px;cursor:pointer}
+  .fcell .fbtn{position:relative;z-index:2;background:#0a1418;color:#7fe8ff;border:1px solid #1d3a34;border-radius:2px;font:inherit;font-size:10px;cursor:pointer;padding:2px;width:100%;margin-top:2px}
+  #scope{width:88px;height:auto;align-self:stretch;background:#04080a;border:1px solid #123a30;border-radius:3px;display:block}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="wrap">
+  <div class="top">
+    <span class="brand">EL·SYSTEMA MASTER</span>
+    <div class="page-tabs" id="pages">
+      <button data-p="0" class="on">GEOMETRY</button>
+      <button data-p="1">MODULATION</button>
+      <button data-p="2">SPACE</button>
+    </div>
+    <span class="transport" id="transport">
+      <button id="tPlay" class="mini active" title="play">▶</button>
+      <button id="tStop" class="mini" title="freeze time">■</button>
+      <button id="tCap" class="mini" title="capture">●</button>
+    </span>
+    <span class="page-tabs" id="modsub" title="PAGE2 sub-select — Track◀▶ on the XL3">
+      <button id="opBtn" title="MOD operator (Track◀)">op▸</button>
+      <button id="xBtn" title="MOD cross ×src (Track▶)">×▸</button>
+    </span>
+    <button class="arm" id="arm">▶ audio</button>
+    <button class="arm" id="autoperf" title="function-driven auto performance (runs in background)">AUTO ∞</button>
+    <label style="color:#7fae90">vol <input id="mvol" type="range" min="0" max="1" step="0.01" value="0.9" style="width:84px"></label>
+    <select id="midi" class="mini"></select>
+    <span class="oled" id="oled">EL-SYSTEMA · 🎧 headphones · click to start audio</span>
+  </div>
+
+  <div class="strips" id="strips"></div>
+
+  <div class="fieldbar" id="fieldbar">
+    <div class="ftitle">FIELD ⟂<small>whole-field transform · drag/wheel to play · ↝ = natural-function motion</small></div>
+    <div class="fcells" id="fcells"></div>
+    <canvas id="scope" title="stereo vector — the whole field seen as a 2-vector (L × R)"></canvas>
+  </div>
+
+  <div class="scorelane">
+    <div class="scorehead">
+      <span class="glabel">GRAPHIC SCORE</span>
+      <button id="scPlay" title="play the score — captures morph over time">▶ score</button>
+      <button id="scStop" title="stop">■</button>
+      <button id="scLoop" class="on" title="loop the score">⟳ loop</button>
+      <span id="scInfo">Transport ● (CAPTURE) adds a frame · wheel/drag a column = its seconds · frames morph continuously (no tempo)</span>
+    </div>
+    <canvas id="score"></canvas>
+  </div>
+
+  <div class="foot">
+    <span id="pageLabel">PAGE: GEOMETRY — enc: fBase / shape1 / shape2</span>
+    <span>CAPTURES:</span><span class="caps" id="caps"></span>
+    <span class="caps">SETTINGS:
+      <button id="saveBtn" title="save all settings to this browser">SAVE</button>
+      <button id="loadBtn" title="load settings from this browser">LOAD</button>
+      <button id="expBtn" title="export settings as .json file">⬇json</button>
+      <button id="impBtn" title="import settings from .json file">⬆json</button>
+      <input id="impFile" type="file" accept="application/json,.json" style="display:none">
+    </span>
+    <span style="margin-left:auto"><a href="./index.html">← instruments</a> · XL3 Custom Mode CC5–36 / Note40–62</span>
+  </div>
+</div>
+
+<!-- el-systema-field protocol (classic IIFE globals; inert until registered) -->
+<script src="./shared/el-systema-shapes.js"></script>
+<script src="./shared/el-systema-transport.js"></script>
+<script src="./shared/el-systema-control.js"></script>
+<script type="module">
+import { createEngine, ENGINE_TYPES } from './core/engines.js';
+import { ModMatrix, SOURCE_NAMES, OPERATORS, DEST_PARAMS } from './core/modmatrix.js';
+import { FieldTransform, FOLD_TYPES, FIELD_MOTION_TARGETS, FIELD_LFOS } from './core/fieldtransform.js';
+import { MidiHub, armAudio } from './core/midi.js';
+
+// ============================ audio graph ============================
+const ctx = new (window.AudioContext || window.webkitAudioContext)();
+const limiter = ctx.createDynamicsCompressor();
+limiter.threshold.value = -8; limiter.knee.value = 6; limiter.ratio.value = 12; limiter.attack.value = 0.003; limiter.release.value = 0.2;
+const masterGain = ctx.createGain(); masterGain.gain.value = 0.9;
+masterGain.connect(limiter).connect(ctx.destination);
+// FIELD layer — the whole slot mix is transformed one dimension up before master.
+const field = new FieldTransform(ctx);
+field.output.connect(masterGain);
+document.getElementById('mvol').oninput = (e) => masterGain.gain.setTargetAtTime(+e.target.value, ctx.currentTime, 0.02);
+if (ctx.listener.positionX) { ctx.listener.positionX.value = 0; ctx.listener.positionZ.value = 0; ctx.listener.forwardZ.value = -1; ctx.listener.upY.value = 1; }
+
+// ============================ slots ============================
+const N = 8;
+const DEFAULT_TYPES = ['membrane','string','fm','kuramoto','phyllotaxis','noise','rossler','plate'];
+const slots = [];
+function newPanner(){ const p = ctx.createPanner(); p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = 0.7; p.rolloffFactor = 1; return p; }
+function setPannerPos(p,x,y){ const X=x*2.2,Y=y*1.1,Z=-0.85; if(p.positionX){p.positionX.setTargetAtTime(X,ctx.currentTime,0.03);p.positionY.setTargetAtTime(Y,ctx.currentTime,0.03);p.positionZ.setTargetAtTime(Z,ctx.currentTime,0.03);} else p.setPosition(X,Y,Z); }
+function buildSlot(i,type){
+  const engine = createEngine(ctx,type);
+  const levelGain = ctx.createGain(); levelGain.gain.value = 0;
+  const stereoPan = ctx.createStereoPanner();       // LFO-modulatable L/R pan
+  const panner = newPanner();
+  engine.output.connect(levelGain); levelGain.connect(stereoPan); stereoPan.connect(panner); panner.connect(field.input);
+  return { i, type, engine, levelGain, stereoPan, panner,
+    on:true, latched:false, level:0,
+    base:{ fBase:engine.fBase, shape1:0.4, shape2:0.5, spaceX:(i/(N-1))*2-1, spaceY:0, spaceSpread:0, pan:0 },
+    env:0, x:0, y:0, orbAng:Math.random()*6.28,
+    exTimer:Math.random()*0.5, faderCaught:true };
+}
+for(let i=0;i<N;i++) slots.push(buildSlot(i,DEFAULT_TYPES[i]));
+
+function reloadEngine(i,type){
+  const s = slots[i];
+  try{ s.engine.output.disconnect(); }catch(e){}
+  s.type = type; s.engine = createEngine(ctx,type);
+  s.engine.output.connect(s.levelGain);
+  s.base.fBase = s.engine.fBase;
+}
+
+// ============================ mod matrix ============================
+const matrix = new ModMatrix(N, 200);
+// one primary route per slot (edited on PAGE2), plus room for user cross routes
+for(let i=0;i<N;i++) matrix.addRoute({ src:'off', op:'thru', cross:'none', depth:0, destSlot:i, destParam:'fBase' });
+const SRC = SOURCE_NAMES(N);
+
+// ============================ pages & global state ============================
+let page = 0;                 // 0 GEOMETRY, 1 MODULATION, 2 SPACE
+let globalRunning = true;     // transport play/freeze
+let lastTouched = 0;          // slot index for Track◀▶ operator edits
+let autoPerform = false, perfT = 0, perfSync = 0; // function-driven auto performance
+const captures = [];
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const PAGE_LABELS = ['GEOMETRY — enc: fBase / shape1 / shape2','MODULATION — enc: source / depth / dest (op=Track◀▶)','SPACE — enc: X / Y / spread·rotate'];
+
+// ============================ control loop (200 Hz) ============================
+let last = performance.now();
+function control(){
+  const now = performance.now();
+  let dt = (now - last)/1000; last = now;
+  dt = clamp(dt, 0, 0.05);
+  const stepDt = globalRunning ? dt : 0;      // global freeze halts all time
+  const mods = matrix.compute(slots, stepDt, globalRunning);
+  field.process(stepDt, matrix.lfos.values);  // transform the whole field (natural-function driven)
+
+  // GRAPHIC SCORE playback: sweep a playhead through the capture timeline,
+  // morphing between frames (background-safe: setInterval loop). Takes over the mix.
+  if(scorePlaying && captures.length && globalRunning){
+    scoreTime += stepDt;
+    const tot=scoreTotal(); let acc=0, seg=0;
+    for(; seg<captures.length; seg++){ const d=captures[seg].dur||8; if(scoreTime < acc+d) break; acc+=d; }
+    if(seg>=captures.length){ if(scoreLoop){ scoreTime=0; scoreSeg=-1; seg=0; acc=0; } else { scoreStop(); seg=captures.length-1; acc=tot-(captures[seg].dur||8); } }
+    const a=captures[seg], b=captures[Math.min(seg+1,captures.length-1)];
+    const f=clamp((scoreTime-acc)/(a.dur||8),0,1);
+    if(seg!==scoreSeg){ applyDiscrete(a); scoreSeg=seg; }
+    applyContinuous(a,b,f);
+    perfSync+=stepDt; if(perfSync>0.15){ perfSync=0; for(let i=0;i<N;i++) syncStrip(i); }
+  }
+  // AUTO PERFORM: the whole mix evolves on natural functions (background-safe,
+  // this loop is setInterval not rAF). Each slot gets a phase-shifted drift.
+  else if(autoPerform && globalRunning){
+    perfT += stepDt; const v = matrix.lfos.values;
+    for(let i=0;i<N;i++){ const s=slots[i], ph=i*0.8;
+      s.on = true;
+      s.level = clamp(0.22 + 0.6*Math.abs(Math.sin(perfT*0.07+ph))*(0.5+0.5*v.pink), 0, 1);
+      s.base.shape1 = clamp(0.5 + 0.4*Math.sin(perfT*0.13+ph+v.lorenz), 0, 1);
+      s.base.shape2 = clamp(0.5 + 0.4*Math.sin(perfT*0.09+ph*1.3), 0, 1);
+      s.base.fBase  = clamp(120*(1 + 0.4*Math.sin(perfT*0.03+ph) + 0.2*v.lorenz), 40, 1200);
+      s.base.spaceX = clamp(Math.sin(perfT*0.05+ph), -1, 1);
+      s.base.spaceY = clamp(Math.cos(perfT*0.043+ph*0.7), -1, 1);
+    }
+    perfSync += stepDt; if(perfSync>0.15){ perfSync=0; for(let i=0;i<N;i++) syncStrip(i); }
+  }
+
+  for(const s of slots){
+    const b = s.base;
+    // effective params = manual base + summed modulation, scaled & clamped per dest
+    const mF = mods[s.i+':fBase']||0, m1 = mods[s.i+':shape1']||0, m2 = mods[s.i+':shape2']||0, mL = mods[s.i+':level']||0, mS = mods[s.i+':space']||0, mP = mods[s.i+':pan']||0;
+    s.engine.setParam('fBase', clamp(b.fBase*(1+mF*1.2), 30, 3000));
+    s.engine.setParam('shape1', clamp(b.shape1+m1, 0, 1));
+    s.engine.setParam('shape2', clamp(b.shape2+m2, 0, 1));
+    // LFO-driven stereo pan (an LFO routed to 'pan' auto-pans the slot)
+    s.stereoPan.pan.setTargetAtTime(clamp((b.pan||0)+mP, -1, 1), ctx.currentTime, 0.02);
+    // auto-excitation: geometry-timed strikes (no tempo) for decaying engines
+    if(globalRunning && s.on && !s.latched && s.level>0.02 && ['membrane','plate','spatial','string','fm'].includes(s.type)){
+      s.exTimer -= dt;
+      if(s.exTimer<=0){ s.engine.trigger(0.4+s.level*0.9); s.exTimer = (0.25+Math.random()*0.5)/(0.4+s.level*2.6); }
+    }
+    const r = s.engine.processControl(stepDt);
+    s.env=r.env; s.x=r.x; s.y=r.y;
+    // level
+    const lv = s.on ? clamp(s.level*(1+mL), 0, 1.2) : 0;
+    s.levelGain.gain.setTargetAtTime(lv*0.9, ctx.currentTime, 0.02);
+    // space
+    let px,py;
+    if(b.spaceSpread>0.02){ s.orbAng += b.spaceSpread*stepDt*2.4; const rad=Math.hypot(b.spaceX,b.spaceY)||0.5; px=Math.cos(s.orbAng)*rad; py=Math.sin(s.orbAng)*rad; }
+    else { px = clamp(b.spaceX + r.x*0.45 + mS, -1,1); py = clamp(b.spaceY + r.y*0.45, -1,1); }
+    setPannerPos(s.panner, px, py); s.px=px; s.py=py;
+  }
+  updateMeters();
+}
+setInterval(control, 5);
+
+// ============================ XL3 mapping ============================
+const REL_MODE = 'twos';   // Novation "Relative 1" (2's complement). alt: 'offset','signed'
+function decodeRelative(v){
+  if(REL_MODE==='offset') return v-64;
+  if(REL_MODE==='signed') return v<64? v : -(v-64);
+  return v<64? v : v-128;                         // twos
+}
+const CC = {
+  FADER:[5,6,7,8,9,10,11,12],
+  ENC_TOP:[13,14,15,16,17,18,19,20],
+  ENC_MID:[21,22,23,24,25,26,27,28],
+  ENC_BOT:[29,30,31,32,33,34,35,36],
+};
+const NOTE = {
+  BTN_TOP:[40,41,42,43,44,45,46,47],
+  BTN_BOT:[48,49,50,51,52,53,54,55],
+  PAGE_UP:56, PAGE_DN:57, TRACK_L:58, TRACK_R:59,
+  PLAY:60, STOP:61, CAPTURE:62,
+};
+function oled(t){ document.getElementById('oled').textContent = t; }
+
+function encTop(i,d){ // top row
+  const s=slots[i]; lastTouched=i;
+  if(page===0){ s.base.fBase = clamp(s.base.fBase*Math.exp(d*0.02),30,3000); oled(`s${i} fBase ${s.base.fBase.toFixed(1)}Hz`); }
+  else if(page===1){ const rt=matrix.routes[i]; let si=SRC.indexOf(rt.src); if(si<0) si=0; si=((si+d)%SRC.length+SRC.length)%SRC.length; rt.src=SRC[si]; oled(`s${i} MOD src ${rt.src}`); }
+  else { s.base.spaceX = clamp(s.base.spaceX + d*0.02,-1,1); oled(`s${i} X ${s.base.spaceX.toFixed(2)}`); }
+  syncStrip(i);
+}
+function encMid(i,d){
+  const s=slots[i]; lastTouched=i;
+  if(page===0){ s.base.shape1 = clamp(s.base.shape1 + d*0.01,0,1); oled(`s${i} shape1 ${s.base.shape1.toFixed(2)}`); }
+  else if(page===1){ const rt=matrix.routes[i]; rt.depth = clamp(rt.depth + d*0.02,-1.5,1.5); oled(`s${i} MOD depth ${rt.depth.toFixed(2)}`); }
+  else { s.base.spaceY = clamp(s.base.spaceY + d*0.02,-1,1); oled(`s${i} Y ${s.base.spaceY.toFixed(2)}`); }
+  syncStrip(i);
+}
+function encBot(i,d){
+  const s=slots[i]; lastTouched=i;
+  if(page===0){ s.base.shape2 = clamp(s.base.shape2 + d*0.01,0,1); oled(`s${i} shape2 ${s.base.shape2.toFixed(2)}`); }
+  else if(page===1){ const rt=matrix.routes[i]; const di=(DEST_PARAMS.indexOf(rt.destParam)+d+DEST_PARAMS.length)%DEST_PARAMS.length; rt.destParam=DEST_PARAMS[di]; oled(`s${i} MOD dest ${rt.destParam}`); }
+  else { s.base.spaceSpread = clamp(s.base.spaceSpread + d*0.01,0,1); oled(`s${i} spread ${s.base.spaceSpread.toFixed(2)}`); }
+  syncStrip(i);
+}
+function faderMove(i,val){ // val 0..1 absolute, with pickup
+  const s=slots[i];
+  if(!s.faderCaught){ if(Math.abs(val - s.level) < 0.06) s.faderCaught=true; else return; }
+  s.level = val; oled(`s${i} level ${(val*100)|0}%`); syncStrip(i);
+}
+function btnTop(i){ const s=slots[i]; s.on=!s.on; oled(`s${i} ${s.on?'ON':'OFF'}`); syncStrip(i); }
+function btnBot(i){ const s=slots[i]; s.latched=!s.latched; s.engine.setLatch(s.latched); oled(`s${i} ${s.latched?'FREEZE':'live'}`); syncStrip(i); }
+function setPage(p){ page=p; document.querySelectorAll('#pages button').forEach(b=>b.classList.toggle('on',+b.dataset.p===p)); document.getElementById('pageLabel').textContent='PAGE: '+PAGE_LABELS[p]; for(let i=0;i<N;i++) syncStrip(i); oled('PAGE '+['GEOMETRY','MODULATION','SPACE'][p]); }
+function trackOp(dir){ // Track◀ = operator of last-touched route (PAGE2)
+  const rt=matrix.routes[lastTouched]; const oi=(OPERATORS.indexOf(rt.op)+dir+OPERATORS.length)%OPERATORS.length; rt.op=OPERATORS[oi]; oled(`s${lastTouched} MOD op ${rt.op}`); syncStrip(lastTouched);
+}
+const CROSS = ['none', ...SRC];               // cross-product partner (§2.3 a·b)
+function trackCross(dir){ // Track▶ = cross source of last-touched route
+  const rt=matrix.routes[lastTouched]; let ci=CROSS.indexOf(rt.cross); if(ci<0)ci=0; ci=((ci+dir)%CROSS.length+CROSS.length)%CROSS.length; rt.cross=CROSS[ci]; oled(`s${lastTouched} MOD cross ×${rt.cross}`); syncStrip(lastTouched);
+}
+function transport(kind){
+  if(kind==='play'){ globalRunning=true; if(ctx.state!=='running') ctx.resume(); }
+  else if(kind==='stop'){ globalRunning=false; }
+  else if(kind==='capture'){ doCapture(); }
+  document.getElementById('tPlay').classList.toggle('active',globalRunning);
+  document.getElementById('tStop').classList.toggle('active',!globalRunning);
+  oled('TRANSPORT '+kind.toUpperCase());
+}
+
+// ---- snapshot / capture / recall / save / load ----
+const DEFAULT_BASE = { fBase:150, shape1:0.4, shape2:0.5, spaceX:0, spaceY:0, spaceSpread:0, pan:0 };
+function makeSnapshot(){
+  return { v:2,
+    types:slots.map(s=>s.type), base:slots.map(s=>({...s.base})), level:slots.map(s=>s.level),
+    on:slots.map(s=>s.on), latched:slots.map(s=>s.latched),
+    routes:matrix.routes.map(r=>({src:r.src,op:r.op,cross:r.cross,depth:r.depth,destSlot:r.destSlot,destParam:r.destParam})),
+    field:field.snapshot(),
+    page, masterVol:masterGain.gain.value, autoPerform };
+}
+function applySnapshot(snap){
+  if(!snap||!snap.types) return;
+  for(let i=0;i<N;i++){
+    if(slots[i].type!==snap.types[i]) reloadEngine(i,snap.types[i]);
+    slots[i].base=Object.assign({...DEFAULT_BASE, fBase:slots[i].engine.fBase}, snap.base[i]);
+    slots[i].level=snap.level[i]; slots[i].on=snap.on[i]; slots[i].latched=snap.latched[i];
+    slots[i].engine.setLatch(slots[i].latched); slots[i].faderCaught=false; syncStrip(i);
+  }
+  (snap.routes||[]).forEach((r,idx)=>{ if(matrix.routes[idx]) Object.assign(matrix.routes[idx],r); });
+  if(snap.field){ field.applySnapshot(snap.field); syncField(); }
+  if(typeof snap.page==='number') setPage(snap.page);
+  if(typeof snap.masterVol==='number'){ masterGain.gain.value=snap.masterVol; const mv=document.getElementById('mvol'); if(mv) mv.value=snap.masterVol; }
+  if(typeof snap.autoPerform==='boolean'){ autoPerform=snap.autoPerform; document.getElementById('autoperf').classList.toggle('on',autoPerform); }
+}
+function doCapture(){ const sn=makeSnapshot(); sn.dur=8; captures.push(sn); renderCaps(); oled('CAPTURE #'+captures.length+' → score'); }
+function recall(k){ if(captures[k]){ applySnapshot(captures[k]); oled('RECALL #'+(k+1)+' (move faders to catch)'); } }
+
+// ---- GRAPHIC SCORE: the CAPTURE list laid on a time axis; frames morph over
+// time (durations in seconds — this is time, not tempo). Continuous params are
+// interpolated between consecutive frames; discrete state steps at each frame. ----
+let scorePlaying=false, scoreLoop=true, scoreTime=0, scoreSeg=-1, scoreSel=-1;
+const lerp=(a,b,f)=>a+(b-a)*f;
+function scoreTotal(){ return captures.reduce((s,c)=>s+(c.dur||8),0)||1; }
+function applyDiscrete(snap){
+  for(let i=0;i<N;i++){ if(slots[i].type!==snap.types[i]) reloadEngine(i,snap.types[i]); slots[i].on=snap.on[i]; slots[i].latched=snap.latched[i]; slots[i].engine.setLatch(slots[i].latched); }
+  (snap.routes||[]).forEach((r,idx)=>{ const rt=matrix.routes[idx]; if(rt){ rt.src=r.src; rt.op=r.op; rt.cross=r.cross; rt.destSlot=r.destSlot; rt.destParam=r.destParam; } });
+  if(snap.field){ field.setFoldType(snap.field.foldType); FIELD_MOTION_TARGETS.forEach(k=>{ const m=snap.field.motion&&snap.field.motion[k]; if(m) field.setMotion(k,m.src,undefined); }); syncField(); }
+}
+function applyContinuous(a,b,f){
+  for(let i=0;i<N;i++){ const ba=a.base[i], bb=b.base[i], s=slots[i];
+    s.base.fBase=lerp(ba.fBase,bb.fBase,f); s.base.shape1=lerp(ba.shape1,bb.shape1,f); s.base.shape2=lerp(ba.shape2,bb.shape2,f);
+    s.base.spaceX=lerp(ba.spaceX,bb.spaceX,f); s.base.spaceY=lerp(ba.spaceY,bb.spaceY,f);
+    s.base.spaceSpread=lerp(ba.spaceSpread||0,bb.spaceSpread||0,f); s.base.pan=lerp(ba.pan||0,bb.pan||0,f);
+    s.level=lerp(a.level[i],b.level[i],f);
+  }
+  (a.routes||[]).forEach((r,idx)=>{ const rt=matrix.routes[idx]; if(rt && b.routes&&b.routes[idx]) rt.depth=lerp(r.depth,b.routes[idx].depth,f); });
+  if(a.field&&b.field){ const fp=field.p; for(const k of ['mix','rot','order','fold','shift','shiftFreq']) fp[k]=lerp(a.field.p[k],b.field.p[k],f);
+    FIELD_MOTION_TARGETS.forEach(k=>{ const am=a.field.motion[k],bm=b.field.motion[k]; if(am&&bm) field.motion[k].depth=lerp(am.depth,bm.depth,f); }); }
+  if(typeof a.masterVol==='number' && typeof b.masterVol==='number'){ masterGain.gain.setTargetAtTime(lerp(a.masterVol,b.masterVol,f),ctx.currentTime,0.05); }
+}
+function scorePlay(){ if(!captures.length){ oled('no CAPTUREs — press ● first'); return; } scorePlaying=true; scoreSeg=-1; if(ctx.state!=='running')ctx.resume(); if(!globalRunning)transport('play'); autoPerform=false; document.getElementById('autoperf').classList.remove('on'); document.getElementById('scPlay').classList.add('on'); oled('SCORE playing'); }
+function scoreStop(){ scorePlaying=false; document.getElementById('scPlay').classList.remove('on'); oled('SCORE stopped'); }
+
+// whole-settings persistence: browser localStorage + portable .json file
+const LS_KEY='elsystema.master.v1';
+function saveAll(){ try{ localStorage.setItem(LS_KEY, JSON.stringify({snapshot:makeSnapshot(), captures})); oled('SAVED to this browser'); }catch(e){ oled('SAVE failed: '+e.message); } }
+function loadAll(){ try{ const j=localStorage.getItem(LS_KEY); if(!j){ oled('nothing saved yet'); return; } ingest(JSON.parse(j)); oled('LOADED from this browser'); }catch(e){ oled('LOAD failed: '+e.message); } }
+function ingest(d){ if(d.captures){ captures.length=0; d.captures.forEach(c=>captures.push(c)); renderCaps(); } applySnapshot(d.snapshot||d); }
+function exportFile(){ const blob=new Blob([JSON.stringify({snapshot:makeSnapshot(),captures},null,1)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='el-systema-master-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.json'; a.click(); URL.revokeObjectURL(a.href); oled('exported .json'); }
+function importFile(file){ const rd=new FileReader(); rd.onload=()=>{ try{ ingest(JSON.parse(rd.result)); oled('imported '+file.name); }catch(e){ oled('import failed'); } }; rd.readAsText(file); }
+
+// ============================ MIDI wiring ============================
+const midi = new MidiHub();
+midi.on('cc',(num,val)=>{
+  let idx;
+  if((idx=CC.FADER.indexOf(num))>=0) faderMove(idx,val);
+  else if((idx=CC.ENC_TOP.indexOf(num))>=0) encTop(idx, decodeRelative(Math.round(val*127)));
+  else if((idx=CC.ENC_MID.indexOf(num))>=0) encMid(idx, decodeRelative(Math.round(val*127)));
+  else if((idx=CC.ENC_BOT.indexOf(num))>=0) encBot(idx, decodeRelative(Math.round(val*127)));
+});
+midi.on('note',(note,vel,on)=>{
+  if(!on) return; let idx;
+  if((idx=NOTE.BTN_TOP.indexOf(note))>=0) btnTop(idx);
+  else if((idx=NOTE.BTN_BOT.indexOf(note))>=0) btnBot(idx);
+  else if(note===NOTE.PAGE_UP) setPage((page+1)%3);
+  else if(note===NOTE.PAGE_DN) setPage((page+2)%3);
+  else if(note===NOTE.TRACK_L) trackOp(+1);    // Track◀ cycles MOD operator
+  else if(note===NOTE.TRACK_R) trackCross(+1); // Track▶ cycles MOD cross source
+  else if(note===NOTE.PLAY) transport('play');
+  else if(note===NOTE.STOP) transport('stop');
+  else if(note===NOTE.CAPTURE) transport('capture');
+});
+midi.init(document.getElementById('midi'));
+armAudio(ctx, document.getElementById('arm'));
+document.getElementById('arm').addEventListener('pointerdown',()=>document.getElementById('arm').classList.add('on'),{once:true});
+const apBtn=document.getElementById('autoperf');
+apBtn.onclick=()=>{ autoPerform=!autoPerform; apBtn.classList.toggle('on',autoPerform); if(autoPerform && ctx.state!=='running') ctx.resume(); oled('AUTO PERFORM '+(autoPerform?'ON — function-driven':'OFF')); };
+
+// ============================ UI (hardware mirror + mouse) ============================
+const stripsEl = document.getElementById('strips');
+const stripDom = [];
+for(let i=0;i<N;i++){
+  const el=document.createElement('div'); el.className='strip';
+  el.innerHTML=`<div class="idx">SLOT ${i+1}</div>
+    <select class="type"></select>
+    <div class="enc e0"><span class="lab"></span><span class="val"></span><div class="bar"></div></div>
+    <div class="enc e1"><span class="lab"></span><span class="val"></span><div class="bar"></div></div>
+    <div class="enc e2"><span class="lab"></span><span class="val"></span><div class="bar"></div></div>
+    <div class="fader"><span class="flab">LVL</span><div class="fill"></div><div class="meter"><i></i></div></div>
+    <div class="btns"><button class="on">ON</button><button class="latch">FRZ</button></div>`;
+  stripsEl.appendChild(el);
+  const sel=el.querySelector('.type'); ENGINE_TYPES.forEach(t=>{const o=document.createElement('option');o.value=o.textContent=t;sel.appendChild(o);});
+  sel.value=slots[i].type; sel.onchange=()=>{ reloadEngine(i,sel.value); syncStrip(i); };
+  // encoder drag (mouse plays them like the hardware)
+  const encs=[el.querySelector('.e0'),el.querySelector('.e1'),el.querySelector('.e2')];
+  const fns=[encTop,encMid,encBot];
+  encs.forEach((enc,r)=>{ let dy=0,drag=false;
+    enc.addEventListener('pointerdown',e=>{drag=true;dy=e.clientY;enc.setPointerCapture(e.pointerId);});
+    enc.addEventListener('pointermove',e=>{ if(!drag)return; const d=(dy-e.clientY); if(Math.abs(d)>=3){ fns[r](i, d>0?Math.ceil(d/3):Math.floor(d/3)); dy=e.clientY; } });
+    enc.addEventListener('pointerup',()=>drag=false);
+    enc.addEventListener('wheel',e=>{e.preventDefault();fns[r](i, e.deltaY<0?1:-1);},{passive:false});
+  });
+  const fader=el.querySelector('.fader');
+  const setF=e=>{ const rc=fader.getBoundingClientRect(); const v=clamp(1-(e.clientY-rc.top)/rc.height,0,1); slots[i].faderCaught=true; faderMove(i,v); };
+  let fdrag=false;
+  fader.addEventListener('pointerdown',e=>{fdrag=true;setF(e);fader.setPointerCapture(e.pointerId);});
+  fader.addEventListener('pointermove',e=>{if(fdrag)setF(e);});
+  fader.addEventListener('pointerup',()=>fdrag=false);
+  el.querySelector('.btns .on').onclick=()=>btnTop(i);
+  el.querySelector('.btns .latch').onclick=()=>btnBot(i);
+  stripDom.push(el);
+}
+document.querySelectorAll('#pages button').forEach(b=>b.onclick=()=>setPage(+b.dataset.p));
+document.getElementById('tPlay').onclick=()=>transport('play');
+document.getElementById('tStop').onclick=()=>transport('stop');
+document.getElementById('tCap').onclick=()=>transport('capture');
+document.getElementById('opBtn').onclick=()=>trackOp(+1);
+document.getElementById('xBtn').onclick=()=>trackCross(+1);
+document.getElementById('saveBtn').onclick=saveAll;
+document.getElementById('loadBtn').onclick=loadAll;
+document.getElementById('expBtn').onclick=exportFile;
+document.getElementById('impBtn').onclick=()=>document.getElementById('impFile').click();
+document.getElementById('impFile').onchange=e=>{ if(e.target.files[0]) importFile(e.target.files[0]); e.target.value=''; };
+
+const ENC_LABELS=[['fBase','shape1','shape2'],['src','depth','dest'],['X','Y','sprd']];
+function encDisplay(i,row){
+  const s=slots[i];
+  if(page===0){ const b=s.base; const v=[b.fBase.toFixed(0),b.shape1.toFixed(2),b.shape2.toFixed(2)][row]; const frac=[clamp((Math.log(b.fBase/30)/Math.log(100)),0,1),b.shape1,b.shape2][row]; return {v,frac}; }
+  if(page===1){ const rt=matrix.routes[i]; if(row===0) return {v:rt.src+(rt.cross!=='none'?'×'+rt.cross.slice(0,4):''),frac:SRC.indexOf(rt.src)/SRC.length}; if(row===1) return {v:rt.depth.toFixed(2),frac:(rt.depth+1.5)/3}; return {v:rt.destParam+'·'+rt.op.slice(0,3),frac:DEST_PARAMS.indexOf(rt.destParam)/DEST_PARAMS.length}; }
+  const b=s.base; if(row===0) return {v:b.spaceX.toFixed(2),frac:(b.spaceX+1)/2}; if(row===1) return {v:b.spaceY.toFixed(2),frac:(b.spaceY+1)/2}; return {v:b.spaceSpread.toFixed(2),frac:b.spaceSpread};
+}
+function syncStrip(i){
+  const el=stripDom[i], s=slots[i];
+  el.querySelector('.type').value=s.type;
+  for(let r=0;r<3;r++){ const enc=el.querySelector('.e'+r); const d=encDisplay(i,r);
+    enc.querySelector('.lab').textContent=ENC_LABELS[page][r];
+    enc.querySelector('.val').textContent=d.v;
+    enc.querySelector('.bar').style.width=(clamp(d.frac,0,1)*100)+'%';
+  }
+  el.querySelector('.fill').style.height=(s.level*100)+'%';
+  const onb=el.querySelector('.btns .on'); onb.classList.toggle('on',s.on); onb.textContent=s.on?'ON':'off';
+  const lb=el.querySelector('.btns .latch'); lb.classList.toggle('on',s.latched);
+}
+function updateMeters(){ for(let i=0;i<N;i++){ stripDom[i].querySelector('.meter i').style.height=(clamp(slots[i].env,0,1)*100)+'%'; } }
+function renderCaps(){ const c=document.getElementById('caps'); c.innerHTML=''; captures.forEach((_,k)=>{const b=document.createElement('button');b.textContent='#'+(k+1);b.onclick=()=>recall(k);c.appendChild(b);}); }
+for(let i=0;i<N;i++) syncStrip(i);
+setPage(0);
+
+// ============================ background visualization ============================
+const bg=document.getElementById('bg'); const g=bg.getContext('2d');
+function rs(){ bg.width=innerWidth*devicePixelRatio; bg.height=innerHeight*devicePixelRatio; } addEventListener('resize',rs); rs();
+// Each active slot is drawn faintly at its HRTF position with a form that
+// mirrors its geometry: membrane/spatial=mode rings, plate=nodal star,
+// kuramoto=phase ring+order arc, lorenz/phyllotaxis=motion trail (§UI 場/軌道/節線).
+const HUES=[150,60,20,180,110,200,140,40];
+function draw(){
+  const W=bg.width,H=bg.height; g.fillStyle='rgba(4,8,10,0.26)'; g.fillRect(0,0,W,H);
+  const cx=W/2, cy=H*0.52, R=Math.min(W,H)*0.34;
+  g.strokeStyle='#12312a'; g.lineWidth=1; g.beginPath(); g.arc(cx,cy,R,0,7); g.stroke();
+  // listener at centre
+  g.strokeStyle='#1d3a34'; g.beginPath(); g.arc(cx,cy,9,0,7); g.stroke(); g.beginPath(); g.moveTo(cx,cy); g.lineTo(cx,cy-14); g.stroke();
+  const dp=devicePixelRatio;
+  for(let i=0;i<N;i++){ const s=slots[i]; if(!s.on){ if(s.trail) s.trail.length=0; continue; }
+    const px=cx+(s.px||0)*R, py=cy+(s.py||0)*R; const e=clamp(s.env,0,1), hue=HUES[i];
+    const base=6*dp+e*20*dp*(s.level*0.6+0.4);
+    s.trail=s.trail||[];
+    const moving=['lorenz','kuramoto','phyllotaxis','rossler'].includes(s.type);
+    if(moving){ s.trail.push([px,py]); if(s.trail.length>46) s.trail.shift();
+      g.strokeStyle=`hsla(${hue},80%,60%,0.26)`; g.lineWidth=1.2*dp; g.beginPath();
+      for(let k=0;k<s.trail.length;k++){ const p=s.trail[k]; k?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]); } g.stroke();
+    } else s.trail.length=0;
+    g.save(); g.translate(px,py);
+    if(s.type==='membrane'||s.type==='spatial'){
+      for(let rr=1;rr<=3;rr++){ g.strokeStyle=`hsla(${hue},80%,62%,${(0.10+e*0.42)/rr})`; g.lineWidth=1.3*dp; g.beginPath(); g.arc(0,0,base*rr*0.62,0,7); g.stroke(); }
+    } else if(s.type==='plate'){
+      g.strokeStyle=`hsla(${hue},85%,60%,${0.14+e*0.5})`; g.lineWidth=1.2*dp;
+      const nodes=2+Math.round(s.base.shape1*3);
+      for(let a=0;a<nodes;a++){ const an=a*Math.PI/nodes; g.beginPath(); g.moveTo(-Math.cos(an)*base,-Math.sin(an)*base); g.lineTo(Math.cos(an)*base,Math.sin(an)*base); g.stroke(); }
+    } else if(s.type==='kuramoto'){
+      g.strokeStyle=`hsla(${hue},80%,60%,0.28)`; g.lineWidth=1.2*dp; g.beginPath(); g.arc(0,0,base,0,7); g.stroke();
+      g.strokeStyle=`hsla(${hue},90%,70%,${0.3+e*0.6})`; g.lineWidth=2.4*dp; g.beginPath(); g.arc(0,0,base,-Math.PI/2,-Math.PI/2+e*6.283); g.stroke();
+    } else if(s.type==='string'){
+      // a vibrating string: a taut line bowed into a standing wave by env
+      g.strokeStyle=`hsla(${hue},85%,64%,${0.2+e*0.6})`; g.lineWidth=1.6*dp; g.beginPath();
+      const L=base*1.6; for(let k=0;k<=20;k++){ const u=k/20, xx=-L+2*L*u; const yy=Math.sin(u*Math.PI)*e*base*0.7*Math.sin(u*6.283*3+performance.now()*0.02); k?g.lineTo(xx,yy):g.moveTo(xx,yy); } g.stroke();
+    } else if(s.type==='fm'){
+      // carrier + orbiting modulator (two rings)
+      g.strokeStyle=`hsla(${hue},85%,62%,${0.16+e*0.5})`; g.lineWidth=1.3*dp; g.beginPath(); g.arc(0,0,base,0,7); g.stroke();
+      const ma=performance.now()*0.004; const mr=base*0.5*(0.6+e); g.fillStyle=`hsla(${hue},95%,74%,${0.4+e*0.5})`; g.beginPath(); g.arc(Math.cos(ma)*base,Math.sin(ma)*base,2.4*dp+mr*0.3,0,7); g.fill();
+    } else if(s.type==='noise'){
+      // fuzzy resonant ring (scattered dots ≈ band-passed noise)
+      for(let k=0;k<12;k++){ const an=k/12*6.283+performance.now()*0.001; const rr=base*(0.7+Math.random()*0.5); g.fillStyle=`hsla(${hue},60%,66%,${(0.08+e*0.4)})`; g.beginPath(); g.arc(Math.cos(an)*rr,Math.sin(an)*rr,1.4*dp,0,7); g.fill(); }
+    }
+    g.fillStyle=`hsla(${hue},90%,72%,${0.42+e*0.5})`; g.beginPath(); g.arc(0,0,3*dp,0,7); g.fill();
+    g.restore();
+    g.fillStyle=`hsla(${hue},55%,62%,0.5)`; g.font=`${Math.round(9*dp)}px ui-monospace,monospace`; g.fillText('s'+(i+1)+' '+s.type.slice(0,4), px+base+4*dp, py+3*dp);
+  }
+  drawScore();
+  drawFieldScope();
+  updateFieldLive();
+  requestAnimationFrame(draw);
+}
+
+// ---- graphic score lane rendering ----
+const scoreCv=document.getElementById('score'), sx=scoreCv.getContext('2d');
+function rsScore(){ if(scoreCv.clientWidth){ scoreCv.width=scoreCv.clientWidth*devicePixelRatio; scoreCv.height=scoreCv.clientHeight*devicePixelRatio; } }
+addEventListener('resize',rsScore);
+function drawScore(){
+  const dp=devicePixelRatio;
+  if(!scoreCv.width || scoreCv.width!==scoreCv.clientWidth*dp) rsScore();
+  const W=scoreCv.width,H=scoreCv.height; sx.clearRect(0,0,W,H); sx.fillStyle='#060d10'; sx.fillRect(0,0,W,H);
+  if(!captures.length){ sx.fillStyle='#3f6a52'; sx.font=`${Math.round(11*dp)}px ui-monospace,monospace`; sx.fillText('press ● (CAPTURE / Transport ●) to add score frames — they will morph over time', 10*dp, H/2); return; }
+  const tot=scoreTotal(); let accX=0;
+  for(let k=0;k<captures.length;k++){ const c=captures[k]; const w=((c.dur||8)/tot)*W;
+    sx.fillStyle = k===scoreSel?'#0c1c22':'#0a1418'; sx.fillRect(accX+1,0,w-2,H);
+    sx.strokeStyle='#12312a'; sx.lineWidth=1; sx.strokeRect(accX+0.5,0.5,w-1,H-1);
+    const bw=(w-4)/N;
+    for(let i=0;i<N;i++){ const lv=(c.on&&c.on[i])?c.level[i]:0; const bh=lv*(H-24*dp);
+      sx.fillStyle=`hsl(${HUES[i]},70%,55%)`; sx.fillRect(accX+2+i*bw, H-7*dp-bh, Math.max(1,bw-1), bh); }
+    sx.fillStyle='#7fae90'; sx.font=`${Math.round(9*dp)}px ui-monospace,monospace`; sx.fillText('#'+(k+1), accX+3*dp, 11*dp);
+    sx.fillStyle='#4f7f66'; sx.fillText((c.dur||8).toFixed(0)+'s', accX+3*dp, H-2*dp);
+    accX+=w;
+  }
+  if(scorePlaying||scoreTime>0.01){ const px=(scoreTime/tot)*W; sx.strokeStyle='#d0ff5a'; sx.lineWidth=1.6*dp; sx.beginPath(); sx.moveTo(px,0); sx.lineTo(px,H); sx.stroke(); }
+}
+function scoreColAt(clientX){ const r=scoreCv.getBoundingClientRect(); const fx=clamp((clientX-r.left)/r.width,0,0.9999); const tot=scoreTotal(); let acc=0; for(let k=0;k<captures.length;k++){ const d=(captures[k].dur||8)/tot; if(fx<acc+d) return k; acc+=d; } return captures.length-1; }
+scoreCv.addEventListener('click',e=>{ if(!captures.length)return; const k=scoreColAt(e.clientX); scoreSel=k; let acc=0; for(let j=0;j<k;j++)acc+=captures[j].dur||8; scoreTime=acc; scoreSeg=-1; oled('frame #'+(k+1)+' — '+(captures[k].dur||8)+'s (click ▶ score to play)'); });
+scoreCv.addEventListener('wheel',e=>{ if(!captures.length)return; e.preventDefault(); const k=scoreColAt(e.clientX); const c=captures[k]; c.dur=clamp((c.dur||8)+(e.deltaY<0?1:-1),1,120); scoreSel=k; oled('frame #'+(k+1)+' = '+c.dur+'s'); },{passive:false});
+document.getElementById('scPlay').onclick=scorePlay;
+document.getElementById('scStop').onclick=scoreStop;
+document.getElementById('scLoop').onclick=()=>{ scoreLoop=!scoreLoop; document.getElementById('scLoop').classList.toggle('on',scoreLoop); };
+
+// ============================ FIELD layer UI ============================
+// Each cell is played by drag (vertical) or wheel. The 6 base operators transform
+// the whole slot mix; the 4 ↝ MOTION cells assign a natural LFO to drive an
+// operator (a new performance dimension — the field plays itself).
+const F_PARAMS=[
+  {k:'mix',      name:'MIX',   min:0, max:1, step:0.02, fmt:v=>(v*100|0)+'%'},
+  {k:'rot',      name:'ROT ⟳', min:-1,max:1, step:0.02, fmt:v=>(v*180).toFixed(0)+'°'},
+  {k:'order',    name:'∂ ORDER',min:-1,max:2,step:0.02, fmt:v=> v.toFixed(2)+(v>0.4?' ∂':v<-0.4?' ∫':' ~')},
+  {k:'fold',     name:'FOLD',  min:0, max:1, step:0.02, fmt:v=>v.toFixed(2)},
+  {k:'shift',    name:'SHIFT', min:0, max:1, step:0.02, fmt:v=>v.toFixed(2)},
+  {k:'shiftFreq',name:'SH ·f', min:0, max:1, step:0.02, fmt:v=>Math.round(18*Math.pow(1.618,v*7))+'Hz'},
+  {k:'res',      name:'RES ∿', min:0, max:1, step:0.02, fmt:v=>v.toFixed(2)},
+  {k:'resTune',  name:'RES ·f',min:0, max:1, step:0.02, fmt:v=>Math.round(40*Math.pow(1.618,v*6))+'Hz'},
+  {k:'grn',      name:'GRAIN ⁘',min:0,max:1, step:0.02, fmt:v=>v.toFixed(2)},
+  {k:'grnDens',  name:'G·dens',min:0, max:1, step:0.02, fmt:v=>Math.round(3+v*42)+'/s'},
+  {k:'grnSize',  name:'G·size',min:0, max:1, step:0.02, fmt:v=>Math.round((0.01+v*0.11)*1000)+'ms'},
+  {k:'grnScat',  name:'G·scat',min:0, max:1, step:0.02, fmt:v=>v.toFixed(2)},
+];
+const fcellsEl=document.getElementById('fcells');
+const fParamCells=[], fMotCells={};
+F_PARAMS.forEach(sp=>{
+  const el=document.createElement('div'); el.className='fcell';
+  el.innerHTML=`<span class="fn">${sp.name}</span><span class="fv"></span><div class="fb"></div>`;
+  fcellsEl.appendChild(el);
+  const sens=(sp.max-sp.min)/150;
+  let dy=0,drag=false;
+  el.addEventListener('pointerdown',e=>{drag=true;dy=e.clientY;el.setPointerCapture(e.pointerId);});
+  el.addEventListener('pointermove',e=>{ if(!drag)return; const d=(dy-e.clientY); if(Math.abs(d)>=1){ field.setParam(sp.k,clamp(field.p[sp.k]+d*sens,sp.min,sp.max)); dy=e.clientY; oled('FIELD '+sp.name+' '+sp.fmt(field.p[sp.k])); } });
+  el.addEventListener('pointerup',()=>drag=false);
+  el.addEventListener('wheel',e=>{e.preventDefault(); field.setParam(sp.k,clamp(field.p[sp.k]+(e.deltaY<0?sp.step:-sp.step),sp.min,sp.max)); oled('FIELD '+sp.name+' '+sp.fmt(field.p[sp.k]));},{passive:false});
+  fParamCells.push({el,sp,fv:el.querySelector('.fv'),fb:el.querySelector('.fb')});
+});
+// FOLD function-type cell
+{ const el=document.createElement('div'); el.className='fcell'; el.style.cursor='default';
+  el.innerHTML=`<span class="fn">FOLD ·fn</span><button class="fbtn" id="foldTypeBtn"></button>`;
+  fcellsEl.appendChild(el);
+  el.querySelector('#foldTypeBtn').onclick=()=>{ const i=(FOLD_TYPES.indexOf(field.foldType)+1)%FOLD_TYPES.length; field.setFoldType(FOLD_TYPES[i]); syncField(); oled('FIELD fold fn = '+field.foldType); };
+}
+// MOTION cells — assign a natural function to drive each operator
+FIELD_MOTION_TARGETS.forEach(t=>{
+  const el=document.createElement('div'); el.className='fcell mot';
+  el.innerHTML=`<span class="fn">${t} ↝</span><span class="fv"></span><div class="fb"></div><select></select>`;
+  fcellsEl.appendChild(el);
+  const sel=el.querySelector('select'); FIELD_LFOS.forEach(n=>{const o=document.createElement('option');o.value=o.textContent=n;sel.appendChild(o);});
+  sel.onchange=()=>{ field.setMotion(t,sel.value,undefined); oled('FIELD '+t+' ↝ '+sel.value); };
+  let dy=0,drag=false;
+  el.addEventListener('pointerdown',e=>{ if(e.target===sel)return; drag=true;dy=e.clientY;el.setPointerCapture(e.pointerId);});
+  el.addEventListener('pointermove',e=>{ if(!drag)return; const d=(dy-e.clientY); field.setMotion(t,undefined,clamp(field.motion[t].depth+d/130,0,1)); dy=e.clientY; syncFieldMot(t); oled('FIELD '+t+' ↝ depth '+field.motion[t].depth.toFixed(2)); });
+  el.addEventListener('pointerup',()=>drag=false);
+  el.addEventListener('wheel',e=>{e.preventDefault(); field.setMotion(t,undefined,clamp(field.motion[t].depth+(e.deltaY<0?0.05:-0.05),0,1)); syncFieldMot(t);},{passive:false});
+  fMotCells[t]={el,sel,fv:el.querySelector('.fv'),fb:el.querySelector('.fb')};
+});
+function syncFieldMot(t){ const c=fMotCells[t]; if(!c)return; const m=field.motion[t]; c.sel.value=m.src; c.fv.textContent='×'+m.depth.toFixed(2); c.fb.style.width=(m.depth*100)+'%'; }
+function syncField(){ const b=document.getElementById('foldTypeBtn'); if(b) b.textContent=field.foldType; FIELD_MOTION_TARGETS.forEach(syncFieldMot); }
+// live readouts follow the *effective* (post-motion) values so the field visibly breathes
+function updateFieldLive(){ for(const c of fParamCells){ const v=field.eff[c.sp.k]; c.fv.textContent=c.sp.fmt(v); c.fb.style.width=(clamp((v-c.sp.min)/(c.sp.max-c.sp.min),0,1)*100)+'%'; } }
+syncField();
+
+// ---- stereo vectorscope: the whole field drawn as a 2-vector (L × R) ----
+const scopeCv=document.getElementById('scope'), sc=scopeCv.getContext('2d');
+const scL=new Float32Array(field.anL.fftSize), scR=new Float32Array(field.anR.fftSize);
+function rsScope(){ const dp=devicePixelRatio; const w=scopeCv.clientWidth||88, h=scopeCv.clientHeight||44; if(scopeCv.width!==w*dp||scopeCv.height!==h*dp){ scopeCv.width=w*dp; scopeCv.height=h*dp; } }
+function drawFieldScope(){ rsScope(); const w=scopeCv.width,h=scopeCv.height;
+  sc.fillStyle='rgba(4,8,10,0.32)'; sc.fillRect(0,0,w,h);
+  sc.strokeStyle='#0e2a24'; sc.lineWidth=1; sc.beginPath(); sc.moveTo(w/2,0);sc.lineTo(w/2,h);sc.moveTo(0,h/2);sc.lineTo(w,h/2); sc.stroke();
+  field.anL.getFloatTimeDomainData(scL); field.anR.getFloatTimeDomainData(scR);
+  const rad=Math.min(w,h)*0.46, hue=150+field.eff.rot*120;
+  sc.strokeStyle=`hsla(${hue},90%,66%,0.72)`; sc.lineWidth=1*devicePixelRatio; sc.beginPath();
+  for(let k=0;k<scL.length;k+=2){ const x=w/2+scL[k]*rad, y=h/2-scR[k]*rad; k?sc.lineTo(x,y):sc.moveTo(x,y); }
+  sc.stroke();
+}
+
+rsScore();
+draw();
+
+// expose for headless tests
+window.__master = { slots, matrix, field, captures, setPage, encTop, encMid, encBot, faderMove, btnTop, btnBot, transport, trackOp, trackCross, decodeRelative, makeSnapshot, applySnapshot, saveAll, loadAll, doCapture, scorePlay, scoreStop, get running(){return globalRunning;}, get autoPerform(){return autoPerform;}, get scoreTime(){return scoreTime;}, get scorePlaying(){return scorePlaying;} };
+
+// ============================ EL-SYSTEMA LIVE bridge ============================
+// Join the field (only with ?field / #field so the plain deployed page stays quiet).
+// 3 macros distil the instrument's core: A=活性, B=明度/構造, C=空間/回転.
+const FIELD_ON = /[?&#]field/.test(location.href);
+function elsysMacro(name, v){
+  v = clamp(+v, 0, 1);
+  if(name==='macro.a'){ field.p.mix = v; field.p.grn = v; }                                          // field density / activity
+  else if(name==='macro.b'){ for(const s of slots) s.base.shape1 = v; field.p.order = v*3-1; field.p.res = v*0.6; } // brightness / structure
+  else if(name==='macro.c'){ for(const s of slots) s.base.spaceSpread = v; field.p.rot = v*2-1; }      // orbit spread / rotation
+  else if(name==='volume'){ masterGain.gain.setTargetAtTime(v*v, ctx.currentTime, 0.02); const mv=document.getElementById('mvol'); if(mv) mv.value=v*v; }
+}
+if(FIELD_ON && window.registerElSystemaInstrument){
+  window.registerElSystemaInstrument({
+    id:'geometry-osc', audioContext:ctx, outputNode:masterGain,
+    onPlay:()=>transport('play'), onStop:()=>transport('stop'),
+    onSetParam:(n,val)=>elsysMacro(n,val),
+    onLoadPreset:(p)=>applySnapshot(p),
+    onSnapshot:()=>makeSnapshot(),
+  });
+  oled('EL-SYSTEMA LIVE: field 接続 (macro A/B/C ＋ volume)');
+}
+</script>
+</body>
+</html>

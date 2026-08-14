@@ -1,0 +1,387 @@
+{
+  "album": "EL-SYSTEMA",
+  "track": "九の輪 ─ 九声の一日",
+  "duration": 600,
+  "音楽": {
+    "key": "C",
+    "mode": "凪",
+    "bpm": 60,
+    "register": 0,
+    "転調策": [
+      { "時": 60,  "mode": "琉球", "policy": "voice-led", "duration": 12 },
+      { "時": 270, "mode": "マカーム", "key": "F", "policy": "immediate", "duration": 4 },
+      { "時": 480, "mode": "凪", "bpm": 50, "policy": "voice-led", "duration": 30 }
+    ]
+  },
+  "綴び": "九つの依代が一日の循環を奏でる。暁の凪に苔と平板の藻が目覚め、朝の流れに海と籠目が応える。真昼の動きに菌糸と石が拍を取り、夕の嵐に粒子と幾何が交錯する。夜の整えに細胞の二値が現れて精密が刻まれ、深夜の無に長い沈黙がバーストを抱く。還りで全声は順に沈み、御嶽は空に戻る。",
+  "楽器": [
+    "planarian-drone",
+    "moss-reservoir",
+    "ocean",
+    "kagome-sound",
+    "stone-beats",
+    "mycorrhiza-beat",
+    "particle-noise",
+    "geometry-scanner",
+    "cell-noise"
+  ],
+
+  "祭次": [
+    {
+      "時": 0, "揺": 0,
+      "target": "MUSUBI", "command": "setParam",
+      "param": "境地", "value": "凪"
+    },
+    {
+      "時": 0, "揺": 0,
+      "target": "planarian-drone", "command": "loadPreset",
+      "preset": {
+        "master": 0.35, "integration": 0.85,
+        "sustain": 0.80, "filtCutoff": 0.30, "filtRes": 0.20,
+        "moisture": 0.70, "soak": 0.55, "breathe": 0.45,
+        "rvMix": 0.35, "dlMix": 0.20,
+        "breathRate": 0.20, "breathDepth": 0.40,
+        "neuralRate": 0.10, "neuralDepth": 0.30
+      }
+    },
+    {
+      "時": 0, "揺": 0,
+      "target": "moss-reservoir", "command": "loadPreset",
+      "preset": {
+        "master": 0.25, "bpm": 40,
+        "hum": 0.75, "den": 0.20, "abs": 0.65,
+        "sat": 0.20, "mix": 0.40
+      }
+    },
+    { "時": 1, "揺": 0.5, "target": "planarian-drone", "command": "play" },
+    { "時": 2, "揺": 0.5, "target": "moss-reservoir",  "command": "play" },
+
+    {
+      "時": 60, "揺": 0,
+      "target": "MUSUBI", "command": "setParam",
+      "param": "境地", "value": "流"
+    },
+    {
+      "時": 60, "揺": 1,
+      "target": "ocean", "command": "loadPreset",
+      "preset": {
+        "master": 0.55, "root": 110, "scale": "ヒラジョシ",
+        "current": "黒潮", "currentDepth": 25,
+        "weather": "凪", "drift": 50, "rain": 0, "thunder": 0,
+        "ds": { "on": true, "level": 65, "octave": 0.5, "swell": 1.0 },
+        "oki": { "on": true, "level": 55, "octave": 1.0, "swell": 1.0 },
+        "kg":  { "on": true, "level": 45, "octave": 2.0, "swell": 1.0 }
+      }
+    },
+    {
+      "時": 60, "揺": 1,
+      "target": "kagome-sound", "command": "loadPreset",
+      "preset": {
+        "tempoSlider": 72,
+        "instMacro": 60, "instMid": 50, "instMicro": 40,
+        "reverbWet": 0.40, "reverbSize": 0.55,
+        "delayWet": 0.25, "delayTime": 0.35, "delayFeed": 0.30
+      }
+    },
+    { "時": 62, "揺": 1, "target": "ocean",         "command": "play" },
+    { "時": 64, "揺": 1, "target": "kagome-sound",  "command": "play" },
+
+    {
+      "時": 90, "揺": 1.5,
+      "target": "ocean", "command": "ramp",
+      "param": "currentDepth", "from": 25, "to": 60, "duration": 30
+    },
+    {
+      "時": 120, "揺": 1,
+      "target": "ocean", "command": "setParam",
+      "param": "weather", "value": "さざ波"
+    },
+
+    {
+      "時": 150, "揺": 1,
+      "target": "MUSUBI", "command": "setParam",
+      "param": "境地", "value": "動"
+    },
+    {
+      "時": 150, "揺": 1,
+      "target": "stone-beats", "command": "loadPreset",
+      "preset": {
+        "master": 0.40, "endmix": 0, "edit_stone": "砂礫",
+        "energy": 0.55, "vary": 0.35,
+        "voices": {
+          "玄武岩": { "on": false, "bpm": 60, "rhythm": "4/4",      "size": 60, "volume": 70, "density": 90,  "plate": 30, "spring": 5,  "stereo": 15, "ping": 5 },
+          "花崗岩": { "on": false, "bpm": 96, "rhythm": "3/4",      "size": 40, "volume": 65, "density": 90,  "plate": 35, "spring": 10, "stereo": 20, "ping": 5 },
+          "石灰岩": { "on": false, "bpm": 72, "rhythm": "5/16",     "size": 55, "volume": 60, "density": 80,  "plate": 45, "spring": 15, "stereo": 10, "ping": 5 },
+          "砂岩":   { "on": false, "bpm": 84, "rhythm": "Tresillo", "size": 35, "volume": 60, "density": 85,  "plate": 20, "spring": 5,  "stereo": 30, "ping": 10 },
+          "磁石":   { "on": false, "bpm": 120,"rhythm": "Cinquillo","size": 30, "volume": 55, "density": 70,  "plate": 55, "spring": 25, "stereo": 35, "ping": 10 },
+          "砂礫":   { "on": true,  "bpm": 60, "rhythm": "1/f",      "size": 60, "volume": 45, "density": 35,  "plate": 30, "spring": 15, "stereo": 25, "ping": 5 }
+        }
+      }
+    },
+    {
+      "時": 150, "揺": 1,
+      "target": "mycorrhiza-beat", "command": "loadPreset",
+      "preset": {
+        "bpm": 90,
+        "fx.moisture": 0.55, "fx.density": 0.40, "fx.anastomosis": 0.30,
+        "fx.resonance": 0.45, "fx.mix": 0.40, "fx.character": 0.50,
+        "sendLevel.kick": 0.50, "sendLevel.snare": 0.30,
+        "sendLevel.hat": 0.40,  "sendLevel.perc": 0.35
+      }
+    },
+    { "時": 152, "揺": 1, "target": "stone-beats",      "command": "play" },
+    { "時": 154, "揺": 1, "target": "mycorrhiza-beat",  "command": "play" },
+
+    {
+      "時": 180, "揺": 1.5,
+      "target": "stone-beats", "command": "setParam",
+      "param": "voice.玄武岩.on", "value": 1
+    },
+    {
+      "時": 210, "揺": 1.5,
+      "target": "stone-beats", "command": "setParam",
+      "param": "voice.花崗岩.on", "value": 1
+    },
+
+    {
+      "時": 270, "揺": 1,
+      "target": "MUSUBI", "command": "setParam",
+      "param": "境地", "value": "嵐"
+    },
+    {
+      "時": 270, "揺": 1,
+      "target": "particle-noise", "command": "loadPreset",
+      "preset": {
+        "masterGain": 0.40, "rate": 0.55, "size": 0.50,
+        "density": 0.50, "brightness": 0.55, "scatter": 0.45, "randomness": 0.40,
+        "Particle.masterGain": 0.60, "Particle.bandwidth": 0.50,
+        "Metallic.masterGain": 0.30, "Metallic.bandwidth": 0.55,
+        "Physical.masterGain": 0.25, "Physical.bandwidth": 0.45
+      }
+    },
+    {
+      "時": 270, "揺": 1,
+      "target": "geometry-scanner", "command": "loadPreset",
+      "preset": {
+        "bpm": 110, "cutoff": 0.50, "resonance": 0.35,
+        "decay": 0.45, "accent": 0.55, "slide": 0.30,
+        "toneBrightness": 0.55, "grit": 0.40, "masterDrive": 0.45,
+        "noiseMix": 0.30, "clickAmount": 0.40, "harmonics": 0.45,
+        "bassLevel": 0.50, "droneLevel": 0.45, "percussionLevel": 0.60
+      }
+    },
+    { "時": 272, "揺": 1, "target": "particle-noise",    "command": "play" },
+    { "時": 274, "揺": 1, "target": "geometry-scanner",  "command": "play" },
+
+    {
+      "時": 280, "揺": 1,
+      "target": "ocean", "command": "setParam",
+      "param": "weather", "value": "荒波"
+    },
+    {
+      "時": 300, "揺": 1,
+      "target": "ocean", "command": "ramp",
+      "param": "rain", "from": 0, "to": 50, "duration": 30
+    },
+    {
+      "時": 320, "揺": 1,
+      "target": "ocean", "command": "setParam",
+      "param": "weather", "value": "雨嵐"
+    },
+    {
+      "時": 330, "揺": 1,
+      "target": "ocean", "command": "ramp",
+      "param": "thunder", "from": 0, "to": 70, "duration": 30
+    },
+    {
+      "時": 340, "揺": 1,
+      "target": "stone-beats", "command": "setParam",
+      "param": "voice.磁石.on", "value": 1
+    },
+
+    {
+      "時": 388, "揺": 0.5,
+      "target": "cell-noise", "command": "loadPreset",
+      "preset": {
+        "masterGain": 0.40, "pitchBase": 220,
+        "sineMix": 0.55, "pulseMix": 0.45, "noiseMix": 0.15,
+        "clickGain": 0.50, "pulseRate": 8, "pulseWidth": 0.50, "burstDensity": 0.30,
+        "noiseGain": 0.35, "noiseBandFreq": 4000, "noiseQ": 8,
+        "bitDepth": 6, "sampleRateReduction": 0.50, "clipAmount": 0.20,
+        "scanSpeed": 0.40, "scanAngle": 0.50
+      }
+    },
+    {
+      "時": 390, "揺": 1,
+      "target": "MUSUBI", "command": "setParam",
+      "param": "境地", "value": "整"
+    },
+    {
+      "時": 390, "揺": 1,
+      "target": "stone-beats", "command": "setParam",
+      "param": "vary", "value": 0.15
+    },
+    {
+      "時": 390, "揺": 1,
+      "target": "particle-noise", "command": "ramp",
+      "param": "density", "from": 0.50, "to": 0.20, "duration": 20
+    },
+    { "時": 391, "揺": 0.5, "target": "cell-noise", "command": "play" },
+    {
+      "時": 410, "揺": 1,
+      "target": "geometry-scanner", "command": "setParam",
+      "param": "selectedRhythm", "value": "binary"
+    },
+    {
+      "時": 430, "揺": 1,
+      "target": "mycorrhiza-beat", "command": "ramp",
+      "param": "fx.density", "from": 0.40, "to": 0.15, "duration": 30
+    },
+    {
+      "時": 440, "揺": 1,
+      "target": "cell-noise", "command": "setParam",
+      "param": "bitDepth", "value": 4
+    },
+
+    {
+      "時": 480, "揺": 2,
+      "target": "MUSUBI", "command": "setParam",
+      "param": "境地", "value": "無"
+    },
+    {
+      "時": 480, "揺": 2,
+      "target": "ocean", "command": "ramp",
+      "param": "thunder", "from": 70, "to": 0, "duration": 40
+    },
+    {
+      "時": 480, "揺": 2,
+      "target": "ocean", "command": "ramp",
+      "param": "rain", "from": 50, "to": 0, "duration": 40
+    },
+    {
+      "時": 490, "揺": 2,
+      "target": "stone-beats", "command": "ramp",
+      "param": "master", "from": 0.40, "to": 0.10, "duration": 60
+    },
+    {
+      "時": 500, "揺": 2,
+      "target": "particle-noise", "command": "ramp",
+      "param": "masterGain", "from": 0.40, "to": 0.05, "duration": 60
+    },
+    {
+      "時": 510, "揺": 2,
+      "target": "geometry-scanner", "command": "ramp",
+      "param": "masterDrive", "from": 0.45, "to": 0.05, "duration": 60
+    },
+    {
+      "時": 510, "揺": 2,
+      "target": "cell-noise", "command": "ramp",
+      "param": "masterGain", "from": 0.40, "to": 0.05, "duration": 40
+    },
+    {
+      "時": 520, "揺": 2,
+      "target": "mycorrhiza-beat", "command": "ramp",
+      "param": "bpm", "from": 90, "to": 40, "duration": 50
+    },
+    {
+      "時": 540, "揺": 1,
+      "target": "ocean", "command": "setParam",
+      "param": "weather", "value": "凪"
+    },
+    {
+      "時": 552, "揺": 0.5,
+      "target": "cell-noise", "command": "stop"
+    },
+    {
+      "時": 555, "揺": 0.5,
+      "target": "geometry-scanner", "command": "stop"
+    },
+    {
+      "時": 560, "揺": 0.5,
+      "target": "particle-noise", "command": "stop"
+    },
+    {
+      "時": 565, "揺": 0.5,
+      "target": "stone-beats", "command": "stop"
+    },
+    {
+      "時": 570, "揺": 0,
+      "target": "MUSUBI", "command": "setParam",
+      "param": "境地", "value": "凪"
+    },
+    {
+      "時": 570, "揺": 0.5,
+      "target": "mycorrhiza-beat", "command": "stop"
+    },
+    {
+      "時": 575, "揺": 0.5,
+      "target": "kagome-sound", "command": "stop"
+    },
+    {
+      "時": 580, "揺": 0.5,
+      "target": "ocean", "command": "ramp",
+      "param": "master", "from": 0.55, "to": 0.0, "duration": 15
+    },
+    {
+      "時": 593, "揺": 0.3,
+      "target": "planarian-drone", "command": "ramp",
+      "param": "master", "from": 0.35, "to": 0.0, "duration": 5
+    },
+    {
+      "時": 594, "揺": 0.3,
+      "target": "moss-reservoir", "command": "ramp",
+      "param": "master", "from": 0.25, "to": 0.0, "duration": 5
+    },
+    {
+      "時": 595, "揺": 0.3,
+      "target": "ocean", "command": "stop"
+    },
+    {
+      "時": 598, "揺": 0.3,
+      "target": "planarian-drone", "command": "stop"
+    },
+    {
+      "時": 599, "揺": 0,
+      "target": "moss-reservoir", "command": "stop"
+    }
+  ],
+
+  "応答": [
+    {
+      "名": "海が満ちたら、菌糸が応える",
+      "時": { "信号": "presence:ocean", "演算": ">", "値": 0.5, "持続": 3 },
+      "為": {
+        "target": "mycorrhiza-beat", "command": "ramp",
+        "param": "bpm", "from": 90, "to": 180, "duration": 10
+      },
+      "冷却": 60
+    },
+    {
+      "名": "雷が落ちたら、磁石が共鳴",
+      "時": { "信号": "presence:ocean", "演算": ">", "値": 0.85, "持続": 1 },
+      "為": {
+        "target": "stone-beats", "command": "setParam",
+        "param": "voice.磁石.ping", "value": 90
+      },
+      "冷却": 15
+    },
+    {
+      "名": "ドローンが沈黙したら、苔が応える",
+      "時": { "信号": "silence:planarian-drone", "演算": ">", "値": 8 },
+      "為": {
+        "target": "moss-reservoir", "command": "ramp",
+        "param": "master", "from": 0.25, "to": 0.50, "duration": 12
+      },
+      "冷却": 120
+    },
+    {
+      "名": "籠目が満ちたら、石灰岩が転調",
+      "時": { "信号": "presence:kagome-sound", "演算": ">", "値": 0.6, "持続": 4 },
+      "為": {
+        "target": "stone-beats", "command": "setParam",
+        "param": "voice.石灰岩.on", "value": 1
+      },
+      "冷却": 45
+    }
+  ]
+}

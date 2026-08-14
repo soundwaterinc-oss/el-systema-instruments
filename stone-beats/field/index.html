@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EL-SYSTEMA / MUSUBI ─ ヲサの場</title>
+  <link rel="stylesheet" href="field.css" />
+</head>
+<body>
+  <main class="stage">
+    <header class="head">
+      <h1 id="title">EL-SYSTEMA / MUSUBI ─ ヲサの場</h1>
+      <div class="connect-state">
+        <span id="connBadge" class="badge dim">未接続</span>
+        <small id="connUrl">ws://localhost:8787</small>
+      </div>
+    </header>
+
+    <section class="picks">
+      <label class="liturgy">
+        <span>祭文</span>
+        <input type="file" id="liturgyFile" accept=".json,application/json" />
+        <button id="loadExample">例を読む</button>
+        <strong id="liturgyName">─</strong>
+      </label>
+      <div class="cast-buttons">
+        <button id="castStart" disabled>祭を始める</button>
+        <button id="castStop" disabled>鎮める</button>
+        <button id="castReturn" disabled>空に戻る</button>
+        <button id="exportBtn" disabled>書き出し</button>
+      </div>
+    </section>
+
+    <section class="garden">
+      <canvas id="canvas" width="960" height="540"></canvas>
+      <div class="garden-legend">
+        <span><i class="dot empty"></i>空の輪（未鳴）</span>
+        <span><i class="dot lit"></i>節（鳴）</span>
+        <span><i class="dot dim"></i>羽い（沈黙）</span>
+        <span><i class="dot wave"></i>波紋（応答発火）</span>
+      </div>
+    </section>
+
+    <aside class="sidebar-stack">
+      <section class="nagare-pane" id="nagarePane">
+        <div class="pane-head">
+          <div>
+            <p class="pane-kicker" id="nagareTuneHead">B 層 ─ 調律する</p>
+            <h2 id="nagareHead">流れの卓</h2>
+          </div>
+          <span class="mode-badge mode-凪" id="nagareStatus">停止中</span>
+        </div>
+
+        <div class="nagare-row nagare-main">
+          <label class="field-label">
+            <span id="kyouchiLabel">境地</span>
+            <select id="nagareMode"></select>
+          </label>
+          <div class="inline-actions">
+            <button id="nagareStartBtn">流れを起こす</button>
+            <button id="nagareStopBtn">流れを鎮める</button>
+          </div>
+        </div>
+
+        <div class="nagare-row nagare-seed">
+          <label class="field-label seed-label">
+            <span id="nagareSeedLabel">seed</span>
+            <input id="nagareSeedInput" type="number" min="0" max="1" step="0.00001" placeholder="auto" />
+          </label>
+          <button id="nagareSeedRefresh">焼き直す</button>
+        </div>
+
+        <label class="toggle-line">
+          <input id="nagareAutoStart" type="checkbox" checked />
+          <span id="nagareAutoStartLabel">招と同時に起こす</span>
+        </label>
+
+        <div class="nagare-section">
+          <div class="section-head">
+            <h3 id="nagareScaleHead">時間スケール別の関数</h3>
+            <small id="nagareScaleNote">境地を変えるとここは上書きされます</small>
+          </div>
+          <div class="scale-grid" id="nagareScaleGrid"></div>
+        </div>
+
+        <div class="nagare-section">
+          <div class="section-head">
+            <h3 id="nagareInstrumentHead">依代別の抜き差し対象</h3>
+          </div>
+          <div class="instrument-grid" id="nagareInstrumentGrid"></div>
+        </div>
+      </section>
+
+      <section class="kotodama-pane">
+        <h2 id="kotodamaHead">言上</h2>
+        <ol id="kotodama" reversed></ol>
+      </section>
+    </aside>
+  </main>
+
+  <script src="../shared/el-systema-shapes.js"></script>
+  <script src="../shared/el-systema-transport.js"></script>
+  <script src="../shared/el-systema-natural.js"></script>
+  <script src="names.js"></script>
+  <script src="nagare.js"></script>
+  <script src="field.js"></script>
+</body>
+</html>

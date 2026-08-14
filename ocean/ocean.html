@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ocean — 海</title>
+<link rel="icon" href="data:,">
+<style>
+:root{
+  --void:#070708; --ink:#0d0e10;
+  --line:rgba(214,210,196,.16); --line-2:rgba(214,210,196,.30);
+  --text:#cfccc0; --dim:#6b6a62;
+  --pulse:#88b9c4; --strike:#5a8a98;
+  --mono:"SFMono-Regular",ui-monospace,"DejaVu Sans Mono",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--void);color:var(--text);
+  font:13px/1.6 var(--mono);letter-spacing:.04em;
+  -webkit-font-smoothing:antialiased;overflow:hidden}
+.frame{height:100vh;display:flex;flex-direction:column}
+.bar{display:flex;align-items:baseline;gap:1.4rem;
+  padding:14px 22px;border-bottom:1px solid var(--line)}
+.bar .mark{letter-spacing:.42em;font-size:12px}
+.bar .sub{color:var(--dim);font-size:11px;letter-spacing:.14em}
+.bar .clock{margin-left:auto;color:var(--pulse);letter-spacing:.22em}
+
+.stage{flex:1;display:flex;min-height:0}
+.left{flex:1;position:relative;border-right:1px solid var(--line)}
+#scope{position:absolute;inset:0;width:100%;height:100%;display:block}
+.transport{position:absolute;left:22px;bottom:20px;display:flex;gap:10px}
+.t{background:transparent;color:var(--text);border:1px solid var(--line-2);
+  padding:9px 18px;font:12px/1 var(--mono);letter-spacing:.28em;cursor:pointer;
+  transition:border-color .25s,color .25s}
+.t:hover{border-color:var(--pulse);color:var(--pulse)}
+.t.ghost{color:var(--dim);border-color:var(--line)}
+.t.live{border-color:var(--pulse);color:var(--pulse)}
+.physh{position:absolute;left:22px;top:18px;color:var(--dim);
+  font-size:10.5px;line-height:1.85;letter-spacing:.06em;pointer-events:none}
+.physh b{color:var(--text);font-weight:400}
+
+.right{width:38%;min-width:360px;max-width:480px;
+  display:flex;flex-direction:column;overflow-y:auto}
+.panel{border-bottom:1px solid var(--line)}
+.ph{padding:11px 18px;color:var(--dim);font-size:10px;letter-spacing:.24em;
+  border-bottom:1px solid var(--line)}
+.body{padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+
+.row{display:flex;align-items:center;gap:12px}
+.k{color:var(--dim);font-size:11px;letter-spacing:.10em;min-width:54px}
+.val{color:var(--text);font-size:10.5px;min-width:48px;text-align:right;font-variant-numeric:tabular-nums}
+select,input[type=range]{background:var(--ink);color:var(--text);
+  border:1px solid var(--line);font:11px var(--mono);outline:0}
+select{padding:6px 10px;letter-spacing:.06em;min-width:160px}
+input[type=range]{-webkit-appearance:none;height:2px;background:var(--line-2);
+  flex:1;min-width:90px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:9px;
+  height:9px;background:var(--pulse);cursor:pointer;border-radius:0}
+
+::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:var(--line)}
+
+.ocs .ph{display:flex;align-items:center;gap:10px;padding:9px 18px}
+.ocs .body{padding:9px 16px;gap:7px}
+.ocs .row{gap:8px}
+.ocs .k{min-width:48px;font-size:10.5px}
+.ocs .val{font-size:10px;min-width:38px}
+.ocs label.von{display:flex;align-items:center;gap:6px;cursor:pointer;letter-spacing:.18em;font-size:11px;color:var(--text)}
+.ocs label.von input{accent-color:var(--pulse);transform:translateY(1px)}
+.ocs.off .body{opacity:.45}
+</style>
+</head>
+<body>
+<div class="frame">
+  <header class="bar">
+    <span class="mark">OCEAN</span>
+    <span class="sub">海 ─ 三 層 の 和 音 と 潮 流</span>
+    <span class="clock" id="clock">--:--</span>
+  </header>
+
+  <main class="stage">
+    <section class="left">
+      <div class="physh" id="physh">海は隠れない</div>
+      <canvas id="scope"></canvas>
+      <div class="transport">
+        <button id="run"  class="t">演 奏</button>
+        <button id="halt" class="t ghost">鎮 め</button>
+      </div>
+    </section>
+
+    <aside class="right">
+
+      <div class="panel">
+        <div class="ph">場 ─ マ ス タ ー</div>
+        <div class="body">
+          <div class="row">
+            <span class="k">出力</span>
+            <input type="range" id="master" min="0" max="100" value="65">
+            <span class="val" id="masterV">65</span>
+          </div>
+          <div class="row">
+            <span class="k">基音 Hz</span>
+            <input type="range" id="root" min="40" max="220" value="110">
+            <span class="val" id="rootV">110</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">音 階 ─ 民 族 ・ 物 理</div>
+        <div class="body">
+          <div class="row">
+            <span class="k">音階</span>
+            <select id="scaleSel"></select>
+          </div>
+          <div class="row">
+            <span class="k">転調速</span>
+            <input type="range" id="drift" min="0" max="200" value="60">
+            <span class="val" id="driftV">60</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">潮 流 ─ 有 機 パ ン</div>
+        <div class="body">
+          <div class="row">
+            <span class="k">潮流</span>
+            <select id="currentSel"></select>
+          </div>
+          <div class="row">
+            <span class="k">深さ</span>
+            <input type="range" id="currentDepth" min="0" max="100" value="60">
+            <span class="val" id="currentDepthV">60</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">天 候 ─ 穏 や か さ ・ 激 し さ</div>
+        <div class="body">
+          <div class="row">
+            <span class="k">天候</span>
+            <select id="weatherSel"></select>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">雨 ・ 雷</div>
+        <div class="body">
+          <div class="row">
+            <span class="k">雨</span>
+            <input type="range" id="rain" min="0" max="100" value="0">
+            <span class="val" id="rainV">0</span>
+          </div>
+          <div class="row">
+            <span class="k">雷</span>
+            <input type="range" id="thunder" min="0" max="100" value="0">
+            <span class="val" id="thunderV">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="ocsPanels"></div>
+
+      <div id="fxPanels"></div>
+
+    </aside>
+  </main>
+</div>
+
+<!-- 葉：場と繋ぐための三本。読み込めない／繋がない時は下の fallback で単体動作 -->
+<script src="shared/el-systema-shapes.js"></script>
+<script src="shared/el-systema-transport.js"></script>
+<script src="shared/el-systema-control.js"></script>
+
+<script>
+(function(){
+"use strict";
+var FIELD_ON = /[?&#]field/.test(location.href);
+var oceanClock = null;
+
+// 場と繋がない単体動作のための fallback
+if(typeof window.registerElSystemaInstrument !== "function"){
+  window.registerElSystemaInstrument = function(){};
+}
+
+/* ── 音階：民族（半音オフセット）─────────────────────
+   潮流が文化を運び、文化が音階を残した ─ という前提で
+   世界の民族音階と物理スケールを混在させる。              */
+var SCALES_SEMI = {
+  "ペンタトニック":      [0, 2, 4, 7, 9],
+  "ヒラジョシ":          [0, 2, 3, 7, 8],
+  "インセン":            [0, 1, 5, 7, 10],
+  "都節":                [0, 1, 5, 7, 8],
+  "ラガ・バイラヴ":      [0, 1, 4, 5, 7, 8, 11],
+  "ラガ・ヤマン":        [0, 2, 4, 6, 7, 9, 11],
+  "マカーム・ラスト":    [0, 2, 3.5, 5, 7, 9, 10.5],
+  "ペロッグ":            [0, 1, 3, 7, 8],
+  "スレンドロ":          [0, 2.4, 4.8, 7.2, 9.6],
+  "ブルース":            [0, 3, 5, 6, 7, 10],
+  "ハーモニックマイナー":[0, 2, 3, 5, 7, 8, 11],
+  "ホールトーン":        [0, 2, 4, 6, 8, 10],
+  "アイヌ":              [0, 2, 4, 7, 9, 11],
+};
+
+var SCALE_NAMES = Object.keys(SCALES_SEMI).concat(
+  ["倍音列", "純正律", "黄金比律", "ピタゴラス律", "フィボナッチ"]
+);
+
+// 音階名 → n 個の周波数比（root を 1 とする倍率）
+function scaleFreqs(name, n){
+  if(name === "倍音列"){
+    var a = [];
+    for(var i=1; i<=n; i++) a.push(i);
+    return a;
+  }
+  if(name === "純正律"){
+    var ratios = [1, 9/8, 5/4, 4/3, 3/2, 5/3, 15/8];
+    var a = [];
+    for(var i=0; i<n; i++){
+      var d = i % ratios.length;
+      var oct = Math.floor(i / ratios.length);
+      a.push(ratios[d] * Math.pow(2, oct));
+    }
+    return a;
+  }
+  if(name === "黄金比律"){
+    var phi = (1+Math.sqrt(5))/2;
+    var a = [];
+    for(var i=0; i<n; i++) a.push(Math.pow(phi, i*0.45));
+    return a;
+  }
+  if(name === "ピタゴラス律"){
+    var f = 1, raw = [];
+    for(var i=0; i<12; i++){
+      raw.push(f);
+      f *= 1.5;
+      while(f >= 2) f /= 2;
+    }
+    raw.sort(function(x,y){ return x - y; });
+    var a = [];
+    for(var i=0; i<n; i++){
+      var d = i % raw.length;
+      var oct = Math.floor(i / raw.length);
+      a.push(raw[d] * Math.pow(2, oct));
+    }
+    return a;
+  }
+  if(name === "フィボナッチ"){
+    var fib = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377];
+    var base = fib[2];
+    var a = [];
+    for(var i=0; i<n; i++) a.push(fib[Math.min(i+2, fib.length-1)] / base);
+    return a;
+  }
+  var st = SCALES_SEMI[name] || [0, 4, 7];
+  var a = [];
+  for(var i=0; i<n; i++){
+    var d = i % st.length;
+    var oct = Math.floor(i / st.length);
+    a.push(Math.pow(2, (st[d] + 12*oct) / 12));
+  }
+  return a;
+}
+
+/* ── 潮流 ─ 有機パンニング（時間関数）────────────────
+   各潮流は固有のパン軌跡。深さで振幅を絞る。               */
+var CURRENT_NAMES = ["黒潮", "親潮", "湾流", "赤潮", "環流", "潮目"];
+
+function currentPan(t){
+  var c = P.current;
+  var d = P.currentDepth / 100;
+  if(c === "黒潮")  return Math.sin(t * 0.13) * 0.60 * d;
+  if(c === "親潮")  return (Math.sin(t * 0.42) * 0.55 + Math.sin(t * 0.11) * 0.30) * d;
+  if(c === "湾流")  return Math.sin(t * 0.08) * 0.88 * d;
+  if(c === "赤潮")  return Math.sin(t * 0.04) * 0.22 * d;
+  if(c === "環流")  return Math.cos(t * 0.18) * 0.65 * d;
+  if(c === "潮目")  return (Math.sin(t * 0.5) * 0.45 + Math.sin(t * 0.71) * 0.35) * d;
+  return 0;
+}
+
+/* ── 天候 ─ 穏やかさと激しさ ──────────────────────── */
+var WEATHER_NAMES = ["凪", "さざ波", "荒波", "嵐", "雨嵐"];
+
+// 各天候の rain/thunder の既定値（雨パネルを自動で立ち上げる時に使う）
+var WEATHER_RAIN = {
+  "凪":     { rain:0,  thunder:0  },
+  "さざ波": { rain:0,  thunder:0  },
+  "荒波":   { rain:0,  thunder:0  },
+  "嵐":     { rain:35, thunder:30 },
+  "雨嵐":   { rain:95, thunder:90 },
+};
+
+function weatherProfile(){
+  switch(P.weather){
+    case "凪":     return { swell:0.10, swellHz:0.04, chap:0.30, wave:0.20, rotate:0.05, drive:0.0 };
+    case "さざ波": return { swell:0.32, swellHz:0.15, chap:1.20, wave:0.60, rotate:0.18, drive:0.1 };
+    case "荒波":   return { swell:0.68, swellHz:0.42, chap:2.60, wave:1.20, rotate:0.55, drive:0.3 };
+    case "嵐":     return { swell:0.95, swellHz:0.85, chap:4.20, wave:1.90, rotate:1.10, drive:0.6 };
+    case "雨嵐":   return { swell:0.92, swellHz:0.95, chap:3.80, wave:1.70, rotate:1.20, drive:0.5 };
+  }
+  return { swell:0.3, swellHz:0.15, chap:1, wave:0.6, rotate:0.2, drive:0.1 };
+}
+
+/* ── 状態 ────────────────────────────────────────── */
+var ac=null, master=null, masterPan=null, ann=null, abuf=null;
+var running=false, schedTimer=null, t0=0;
+
+var P = {
+  master: 0.65,
+  root: 110,                       // 基音 Hz
+  scale: "ヒラジョシ",
+  current: "黒潮", currentDepth: 60,
+  weather: "さざ波",
+  rain: 0,                         // 雨の強度（持続するノイズ層）0-100
+  thunder: 0,                      // 雷の頻度 0-100
+  drift: 60,                       // 音階内ドリフトの倍率（0-200）
+
+  // 三つのオシレータセクション
+  // octave は基音への乗数（0.25=2 オクターブ下、4.0=2 オクターブ上）
+  ds:  { on:true,  level:70, voices:5, octave:0.50, swell:1.00 },  // 深海
+  oki: { on:true,  level:60, voices:4, octave:1.00, swell:1.00 },  // 沖
+  kg:  { on:true,  level:55, voices:4, octave:2.00, swell:1.20 },  // 海岸
+
+  // 海 FX
+  fx: {
+    depth:  { mix:50, size:70 },   // 大規模残響（畳み込み）
+    width:  { mix:120 },           // M/S 拡幅（100=素通り、>100 で広がる、<100 で狭まる）
+    chorus: { rate:30, depth:60 }, // 渦：左右 LFO のコーラス
+    drive:  { amount:15 },         // 飽和：tanh waveshaper
+  },
+};
+
+/* ── オシレータセクション（連続発音）─────────────── */
+var OCS = { ds:null, oki:null, kg:null };
+
+// 一セクション分のオシレータ群を生成。
+// 各声は sine + slow amp LFO + slow detune LFO の三本立て。
+// colorCfg で「海の色付け」フィルタを挿入：
+//   深海はローパスで暗く、沖は中域を緩く揺らし、海岸はハイパスで開かす。
+function setupOcs(voiceCount, panSpread, colorCfg){
+  var section = { out: ac.createGain(), voices: [], _nextRotate: 0 };
+
+  // 色付けフィルタ（voices → color → out）
+  section.color = ac.createBiquadFilter();
+  section.color.type = colorCfg.type;
+  section.color.frequency.value = colorCfg.freq;
+  section.color.Q.value = (colorCfg.Q != null) ? colorCfg.Q : 0.7;
+  if(colorCfg.gain != null) section.color.gain.value = colorCfg.gain;
+  section.color.connect(section.out);
+
+  // 緩い LFO で filter frequency を sweep（水の揺れ）
+  if(colorCfg.lfoHz){
+    section._cLfo = ac.createOscillator();
+    section._cLfo.frequency.value = colorCfg.lfoHz;
+    section._cLfoG = ac.createGain();
+    section._cLfoG.gain.value = colorCfg.lfoDepth || colorCfg.freq * 0.25;
+    section._cLfo.connect(section._cLfoG);
+    section._cLfoG.connect(section.color.frequency);
+    section._cLfo.start();
+  }
+
+  for(var i=0; i<voiceCount; i++){
+    var v = {};
+    v.osc = ac.createOscillator(); v.osc.type = "sine";
+    v.gain = ac.createGain(); v.gain.gain.value = 0;
+    v.pan = ac.createStereoPanner();
+    v.pan.pan.value = ((i / Math.max(1, voiceCount-1)) * 2 - 1) * panSpread;
+
+    // amp LFO（うねり）
+    v.lfo = ac.createOscillator(); v.lfo.type = "sine";
+    v.lfo.frequency.value = 0.04 + Math.random() * 0.10;
+    v.lfoGain = ac.createGain(); v.lfoGain.gain.value = 0.30;
+
+    // base ゲインの定数源（0.5 を中心に LFO が揺らす）
+    v.base = ac.createConstantSource(); v.base.offset.value = 0.5;
+    v.base.connect(v.gain.gain);
+    v.lfo.connect(v.lfoGain); v.lfoGain.connect(v.gain.gain);
+
+    // detune LFO（緩いコーラス感）
+    v.det = ac.createOscillator(); v.det.type = "sine";
+    v.det.frequency.value = 0.05 + Math.random() * 0.15;
+    v.detGain = ac.createGain(); v.detGain.gain.value = 4;  // ±4 cents 程度
+    v.det.connect(v.detGain); v.detGain.connect(v.osc.detune);
+
+    v.osc.connect(v.gain); v.gain.connect(v.pan); v.pan.connect(section.color);
+
+    v.osc.start(); v.lfo.start(); v.det.start(); v.base.start();
+    section.voices.push(v);
+  }
+  return section;
+}
+
+function ocsRoot(ocsName){
+  return P.root * P[ocsName].octave;
+}
+
+// 一セクションの和音を音階から組み直す
+function applyOcsChord(ocsName){
+  var section = OCS[ocsName]; if(!section || !ac) return;
+  var n = section.voices.length;
+  var freqs = scaleFreqs(P.scale, n);
+  var rf = ocsRoot(ocsName);
+  for(var i=0; i<n; i++){
+    section.voices[i].osc.frequency.setTargetAtTime(rf * freqs[i], ac.currentTime, 0.6);
+  }
+}
+function applyAllOcsChords(){
+  ["ds","oki","kg"].forEach(applyOcsChord);
+}
+
+// 天候からうねり深さ・速さ、ocs.level から出力
+function applyOcsLevels(){
+  if(!ac) return;
+  var w = weatherProfile();
+  ["ds","oki","kg"].forEach(function(name){
+    var section = OCS[name], p = P[name];
+    if(!section) return;
+    section.out.gain.value = (p.on ? 1 : 0) * (p.level / 100);
+    section.voices.forEach(function(v){
+      v.lfoGain.gain.value = w.swell * (p.swell || 1);
+      var baseHz = 0.04 + Math.random() * 0.10;
+      v.lfo.frequency.setTargetAtTime(baseHz * (1 + w.swellHz * 3), ac.currentTime, 0.3);
+    });
+  });
+  applyAmbient();
+}
+
+/* ── 音階内ドリフト ─────────────────────────────
+   各セクションが音階の中で和音を時々組み替える。深海は遅い、
+   沖は中庸、海岸は速い。drift スライダで全体倍率。           */
+function driftTick(){
+  if(!running) return;
+  var w = weatherProfile();
+  var rate = w.rotate * (P.drift / 100);
+  var now = ac.currentTime;
+
+  ["ds","oki","kg"].forEach(function(name){
+    var section = OCS[name], p = P[name];
+    if(!section || !p.on) return;
+    if(!section._nextRotate) section._nextRotate = now + 1.0;
+    var localRate = rate * (name === "ds" ? 0.35 : name === "oki" ? 1.0 : 1.7);
+    if(localRate <= 0.001) return;
+    if(now > section._nextRotate){
+      var n = section.voices.length;
+      var freqs = scaleFreqs(P.scale, n * 3);  // 三オクターブぶん
+      var voiceIdx = Math.floor(Math.random() * n);
+      var freqIdx  = Math.floor(Math.random() * (n * 3));
+      var rf = ocsRoot(name);
+      section.voices[voiceIdx].osc.frequency.setTargetAtTime(
+        rf * freqs[freqIdx], now, 1.0 + Math.random()*0.6
+      );
+      section._nextRotate = now + 1 / Math.max(0.01, localRate);
+    }
+  });
+
+}
+
+/* ── チャプチャプ（バブルポップ）──────────────────
+   水滴・小さな水跳ねの再現：
+     ・励起ノイズを頭に集中（exp で減衰）── 機械的な励起
+     ・並列 2 帯域 BP（主共振 + 1.8 倍の倍音）── 水の共鳴
+     ・周波数を下方掃引（fStart → 0.5〜0.9 fStart）── バブル収縮
+     ・高 Q（8〜14）── 水中らしい共鳴感                  */
+function chapChap(when, freqRange, amp, durRange, ocsName){
+  var dur = durRange[0] + Math.random() * (durRange[1] - durRange[0]);
+  var fStart = freqRange[0] + Math.random() * (freqRange[1] - freqRange[0]);
+  var fEnd   = fStart * (0.5 + Math.random() * 0.4);
+
+  // 頭に励起を集中した短いノイズバッファ
+  var len = Math.ceil(ac.sampleRate * dur);
+  var buf = ac.createBuffer(1, len, ac.sampleRate);
+  var d = buf.getChannelData(0);
+  for(var i=0; i<len; i++){
+    d[i] = (Math.random()*2-1) * Math.exp(-i / (len * 0.18));
+  }
+  var src = ac.createBufferSource(); src.buffer = buf;
+
+  // 主共振 BP（高 Q、下方掃引）
+  var bp1 = ac.createBiquadFilter(); bp1.type = "bandpass";
+  bp1.Q.value = 8 + Math.random() * 6;
+  bp1.frequency.setValueAtTime(fStart, when);
+  bp1.frequency.exponentialRampToValueAtTime(fEnd, when + dur * 0.6);
+
+  // 倍音側 BP（中 Q、同方向掃引）
+  var bp2 = ac.createBiquadFilter(); bp2.type = "bandpass";
+  bp2.Q.value = 5 + Math.random() * 4;
+  bp2.frequency.setValueAtTime(fStart * 1.8, when);
+  bp2.frequency.exponentialRampToValueAtTime(fEnd * 1.8, when + dur * 0.6);
+
+  var g1 = ac.createGain(); g1.gain.value = amp;
+  var g2 = ac.createGain(); g2.gain.value = amp * 0.4;
+
+  var env = ac.createGain();
+  env.gain.setValueAtTime(0.0001, when);
+  env.gain.linearRampToValueAtTime(1, when + 0.002);
+  env.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+
+  var pan = ac.createStereoPanner();
+  pan.pan.value = (Math.random()*2-1) * 0.85;
+
+  src.connect(bp1); bp1.connect(g1); g1.connect(env);
+  src.connect(bp2); bp2.connect(g2); g2.connect(env);
+  env.connect(pan); pan.connect(OCS[ocsName].out);
+  src.start(when); src.stop(when + dur + 0.05);
+}
+
+/* ── 波ノイズ（打ち寄せる波）──────────────────────
+   多段フェーズで打ち寄せの全行程を再現：
+     1) 衝撃   ─ broadband クラッシュ（白ノイズの頭で大きく急減衰）
+     2) 拡散   ─ 白＋ブラウンの混合に時間変化ローパス（3.5k→0.5k）
+                  ＋拡散中に 10〜18 個のバブルポップ
+     3) 退き   ─ 低域 brown rumble がじわっと消える
+   全体で 2〜5 秒。海岸セクションへ出力。                 */
+function waveNoise(when, amp){
+  var crashDur   = 0.06 + Math.random() * 0.04;
+  var spreadDur  = 1.2  + Math.random() * 1.8;
+  var retreatDur = 0.8  + Math.random() * 0.8;
+  var tCrash   = when;
+  var tSpread  = tCrash + crashDur;
+  var tRetreat = tSpread + spreadDur;
+
+  // 全体パン（その波の到来位置）
+  var pan = ac.createStereoPanner();
+  pan.pan.value = (Math.random()*2-1) * 0.5;
+  pan.connect(OCS.kg.out);
+
+  // ─ 衝撃：頭で大きく一瞬の broadband クラッシュ ─
+  var crashLen = Math.ceil(ac.sampleRate * crashDur);
+  var crashBuf = ac.createBuffer(2, crashLen, ac.sampleRate);
+  for(var ch=0; ch<2; ch++){
+    var d = crashBuf.getChannelData(ch);
+    for(var i=0; i<crashLen; i++){
+      d[i] = (Math.random()*2-1) * Math.exp(-i / (crashLen * 0.25));
+    }
+  }
+  var crashSrc = ac.createBufferSource(); crashSrc.buffer = crashBuf;
+  var crashG = ac.createGain(); crashG.gain.value = amp * 1.6;
+  crashSrc.connect(crashG); crashG.connect(pan);
+  crashSrc.start(tCrash); crashSrc.stop(tCrash + crashDur + 0.05);
+
+  // ─ 拡散：白＋ブラウン混合に時間変化 LP ─
+  var spreadLen = Math.ceil(ac.sampleRate * spreadDur);
+  var spreadBuf = ac.createBuffer(2, spreadLen, ac.sampleRate);
+  for(var ch=0; ch<2; ch++){
+    var d = spreadBuf.getChannelData(ch);
+    var brown = 0;
+    for(var i=0; i<spreadLen; i++){
+      var w = Math.random()*2-1;
+      brown = brown * 0.93 + w * 0.07;
+      d[i] = w * 0.5 + brown * 3;
+    }
+  }
+  var spreadSrc = ac.createBufferSource(); spreadSrc.buffer = spreadBuf;
+  var spreadLP = ac.createBiquadFilter(); spreadLP.type = "lowpass";
+  spreadLP.frequency.setValueAtTime(3500, tSpread);
+  spreadLP.frequency.exponentialRampToValueAtTime(500, tSpread + spreadDur);
+  spreadLP.Q.value = 0.5;
+  var spreadG = ac.createGain();
+  spreadG.gain.setValueAtTime(amp * 1.2, tSpread);
+  spreadG.gain.exponentialRampToValueAtTime(0.0001, tSpread + spreadDur);
+  spreadSrc.connect(spreadLP); spreadLP.connect(spreadG); spreadG.connect(pan);
+  spreadSrc.start(tSpread); spreadSrc.stop(tSpread + spreadDur + 0.05);
+
+  // ─ 拡散中のバブルポップ散らし（10〜18 個）─
+  var nBubbles = 10 + Math.floor(Math.random() * 9);
+  for(var b=0; b<nBubbles; b++){
+    var bT   = tSpread + Math.random() * spreadDur;
+    var bF   = 500 + Math.random() * 2500;
+    var bDur = 0.025 + Math.random() * 0.05;
+    var bAmp = amp * 0.35 * (0.5 + Math.random() * 0.5);
+    var bLen = Math.ceil(ac.sampleRate * bDur);
+    var bBuf = ac.createBuffer(1, bLen, ac.sampleRate);
+    var bD = bBuf.getChannelData(0);
+    for(var i=0; i<bLen; i++){
+      bD[i] = (Math.random()*2-1) * Math.exp(-i / (bLen * 0.20));
+    }
+    var bSrc = ac.createBufferSource(); bSrc.buffer = bBuf;
+    var bBP  = ac.createBiquadFilter(); bBP.type = "bandpass";
+    bBP.frequency.setValueAtTime(bF * 1.5, bT);
+    bBP.frequency.exponentialRampToValueAtTime(bF * 0.7, bT + bDur * 0.5);
+    bBP.Q.value = 8 + Math.random() * 6;
+    var bPan = ac.createStereoPanner();
+    bPan.pan.value = (Math.random()*2-1) * 0.9;
+    var bG = ac.createGain(); bG.gain.value = bAmp;
+    bSrc.connect(bBP); bBP.connect(bG); bG.connect(bPan); bPan.connect(OCS.kg.out);
+    bSrc.start(bT); bSrc.stop(bT + bDur + 0.05);
+  }
+
+  // ─ 退き：低域 brown rumble がじわっと消える ─
+  var retreatLen = Math.ceil(ac.sampleRate * retreatDur);
+  var retreatBuf = ac.createBuffer(2, retreatLen, ac.sampleRate);
+  for(var ch=0; ch<2; ch++){
+    var d = retreatBuf.getChannelData(ch);
+    var last = 0;
+    for(var i=0; i<retreatLen; i++){
+      var w = Math.random()*2-1;
+      last = last * 0.97 + w * 0.03;
+      d[i] = last * 12;
+    }
+  }
+  var retreatSrc = ac.createBufferSource(); retreatSrc.buffer = retreatBuf;
+  var retreatLP  = ac.createBiquadFilter(); retreatLP.type = "lowpass";
+  retreatLP.frequency.value = 300;
+  var retreatG = ac.createGain();
+  retreatG.gain.setValueAtTime(amp * 0.5, tRetreat);
+  retreatG.gain.exponentialRampToValueAtTime(0.0001, tRetreat + retreatDur);
+  retreatSrc.connect(retreatLP); retreatLP.connect(retreatG); retreatG.connect(pan);
+  retreatSrc.start(tRetreat); retreatSrc.stop(tRetreat + retreatDur + 0.05);
+}
+
+/* ── 環境ノイズ層（持続する潮騒）────────────────
+   Paul Kellet 風のピンクノイズを 8 秒のループにし、
+   緩い LFO で帯域中心を 800〜2400Hz の間でゆっくり sweep。
+   weather でゲインが上下し、嵐ほど大きく鳴る。              */
+var AMBIENT = { src:null, hp:null, bp:null, lfo:null, lfoG:null, gain:null };
+
+function makePinkBuffer(seconds){
+  var len = Math.ceil(ac.sampleRate * seconds);
+  var buf = ac.createBuffer(2, len, ac.sampleRate);
+  for(var ch=0; ch<2; ch++){
+    var d = buf.getChannelData(ch);
+    var b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+    for(var i=0; i<len; i++){
+      var w = Math.random()*2-1;
+      b0 = 0.99886*b0 + w*0.0555179;
+      b1 = 0.99332*b1 + w*0.0750759;
+      b2 = 0.96900*b2 + w*0.1538520;
+      b3 = 0.86650*b3 + w*0.3104856;
+      b4 = 0.55000*b4 + w*0.5329522;
+      b5 = -0.7616*b5 - w*0.0168980;
+      d[i] = (b0+b1+b2+b3+b4+b5+b6+w*0.5362) * 0.11;
+      b6 = w*0.115926;
+    }
+  }
+  return buf;
+}
+
+function setupAmbient(){
+  AMBIENT.src = ac.createBufferSource();
+  AMBIENT.src.buffer = makePinkBuffer(8);
+  AMBIENT.src.loop = true;
+
+  AMBIENT.hp = ac.createBiquadFilter(); AMBIENT.hp.type = "highpass";
+  AMBIENT.hp.frequency.value = 180;
+
+  AMBIENT.bp = ac.createBiquadFilter(); AMBIENT.bp.type = "bandpass";
+  AMBIENT.bp.frequency.value = 1600;
+  AMBIENT.bp.Q.value = 0.5;
+
+  AMBIENT.lfo  = ac.createOscillator();
+  AMBIENT.lfo.frequency.value = 0.06;
+  AMBIENT.lfoG = ac.createGain(); AMBIENT.lfoG.gain.value = 800;
+  AMBIENT.lfo.connect(AMBIENT.lfoG); AMBIENT.lfoG.connect(AMBIENT.bp.frequency);
+
+  AMBIENT.gain = ac.createGain();
+  AMBIENT.gain.gain.value = 0.0001;
+
+  AMBIENT.src.connect(AMBIENT.hp);
+  AMBIENT.hp.connect(AMBIENT.bp);
+  AMBIENT.bp.connect(AMBIENT.gain);
+  AMBIENT.gain.connect(masterPan);
+
+  AMBIENT.src.start();
+  AMBIENT.lfo.start();
+  applyAmbient();
+}
+
+function applyAmbient(){
+  if(!AMBIENT.gain || !ac) return;
+  var levels = { "凪":0.22, "さざ波":0.48, "荒波":0.85, "嵐":1.30 };
+  var lvl = levels[P.weather] != null ? levels[P.weather] : 0.4;
+  AMBIENT.gain.gain.setTargetAtTime(lvl, ac.currentTime, 1.2);
+}
+
+/* ── 雨 ─ 持続する高域寄りピンクノイズ層 ──────── */
+var RAIN = { src:null, hp:null, tone:null, gain:null, lfo:null, lfoG:null };
+
+function setupRain(){
+  if(RAIN.src) return;
+  RAIN.src = ac.createBufferSource();
+  RAIN.src.buffer = makePinkBuffer(6);
+  RAIN.src.loop = true;
+
+  // 雨：高域に偏ったピンクノイズ + 中高に少しピーク（しずく感）
+  RAIN.hp = ac.createBiquadFilter(); RAIN.hp.type = "highpass";
+  RAIN.hp.frequency.value = 2200;
+  RAIN.tone = ac.createBiquadFilter(); RAIN.tone.type = "peaking";
+  RAIN.tone.frequency.value = 4500; RAIN.tone.Q.value = 0.9; RAIN.tone.gain.value = 4;
+
+  // 緩い揺らぎ（雨脚の濃淡）
+  RAIN.lfo = ac.createOscillator(); RAIN.lfo.frequency.value = 0.08;
+  RAIN.lfoG = ac.createGain(); RAIN.lfoG.gain.value = 0;  // applyRain で雨強度に比例
+
+  RAIN.gain = ac.createGain(); RAIN.gain.gain.value = 0.0001;
+  RAIN.lfo.connect(RAIN.lfoG); RAIN.lfoG.connect(RAIN.gain.gain);
+
+  RAIN.src.connect(RAIN.hp); RAIN.hp.connect(RAIN.tone); RAIN.tone.connect(RAIN.gain);
+  RAIN.gain.connect(masterPan);
+
+  RAIN.src.start(); RAIN.lfo.start();
+  applyRain();
+}
+
+function applyRain(){
+  if(!RAIN.gain || !ac) return;
+  var base = (P.rain / 100) * 5.6;  // 雨を倍に
+  RAIN.gain.gain.setTargetAtTime(Math.max(0.0001, base), ac.currentTime, 0.8);
+  RAIN.lfoG.gain.setTargetAtTime(base * 0.35, ac.currentTime, 0.8);
+}
+
+/* ── 雷 ─ 4 段構成で「ド ガ ー ン」を作る ───────────
+   1) サブ衝撃 ─ 50〜90 Hz サインのピッチ降下、胸を突く「ド」
+   2) ボディ   ─ 200〜500 Hz の帯域ノイズ、頭で大きく「ガ」
+   3) クラック ─ broadband ノイズ、HP が 1.8k → 200Hz へ降下、「ッ」の鋭さ
+   4) 鳴動     ─ 低域 brown noise を 6〜13 秒、LP が LFO で揺れる「ー ン」  */
+function thunder(impactTime, intensity){
+  // 雷は遠雷の物理：低周波は遠くまで届くが高周波は空気で減衰する。
+  // よって観測者には低音のゴロゴロが先に届き、稲妻が近い時に
+  // 全帯域のドシャーンが衝突する。三段で時間順に組み立てる。
+  //   A) 接近   ─ 低域 brown rumble が 1.5〜3.5 秒かけて高まる
+  //   B) 衝撃   ─ サブ＋ボディ＋クラックが impactTime で同時打突
+  //   C) 鳴動   ─ 衝撃後の長い余韻、LP が LFO で揺れる
+  //
+  // 雷は master の 1/12 制約を補うため専用バスでブースト。
+  var thunderBus = ac.createGain();
+  thunderBus.gain.value = 2.0;  // 雷を 1/3 に
+  thunderBus.connect(masterPan);
+
+  // ===== A) 接近 ─ 低音ゴロゴロが衝撃前に高まる =====
+  var approachDur = 1.5 + Math.random() * 2.0;
+  var tApproach   = Math.max(ac.currentTime + 0.02, impactTime - approachDur);
+  var actualApproach = impactTime - tApproach;
+  if(actualApproach > 0.20){
+    var preDur = actualApproach + 0.08;
+    var preLen = Math.ceil(ac.sampleRate * preDur);
+    var preBuf = ac.createBuffer(2, preLen, ac.sampleRate);
+    for(var ch=0; ch<2; ch++){
+      var d = preBuf.getChannelData(ch);
+      var last = 0;
+      for(var i=0; i<preLen; i++){
+        var w = Math.random()*2-1;
+        last = last * 0.99 + w * 0.01;
+        d[i] = last * 30;
+      }
+    }
+    var preSrc = ac.createBufferSource(); preSrc.buffer = preBuf;
+    var preLP  = ac.createBiquadFilter(); preLP.type = "lowpass";
+    preLP.frequency.value = 160; preLP.Q.value = 0.9;
+    var preLfo  = ac.createOscillator(); preLfo.frequency.value = 0.35 + Math.random() * 0.55;
+    var preLfoG = ac.createGain(); preLfoG.gain.value = 55;
+    preLfo.connect(preLfoG); preLfoG.connect(preLP.frequency);
+    var preG = ac.createGain();
+    preG.gain.setValueAtTime(0.0001, tApproach);
+    preG.gain.exponentialRampToValueAtTime(intensity * 0.35, tApproach + actualApproach * 0.45);
+    preG.gain.exponentialRampToValueAtTime(intensity * 1.05, impactTime - 0.02);
+    preG.gain.exponentialRampToValueAtTime(0.001, impactTime + 0.30);
+    var prePan = ac.createStereoPanner();
+    prePan.pan.value = (Math.random()*2-1) * 0.55;
+    preSrc.connect(preLP); preLP.connect(preG);
+    preG.connect(prePan); prePan.connect(thunderBus);
+    preSrc.start(tApproach); preSrc.stop(impactTime + 0.35);
+    preLfo.start(tApproach); preLfo.stop(impactTime + 0.35);
+  }
+
+  var when = impactTime;  // 以下は B/C の衝撃時刻
+  // ─ 1) サブ衝撃 ─（ピッチ降下サイン＋三角波重ね、胸を突く重低音） ─
+  var subF = 45 + Math.random() * 40;
+  var subO = ac.createOscillator(); subO.type = "sine";
+  subO.frequency.setValueAtTime(subF * 2.4, when);
+  subO.frequency.exponentialRampToValueAtTime(subF, when + 0.07);
+  // 三角波を重ねて倍音をブースト
+  var subO2 = ac.createOscillator(); subO2.type = "triangle";
+  subO2.frequency.setValueAtTime(subF * 2.4, when);
+  subO2.frequency.exponentialRampToValueAtTime(subF, when + 0.07);
+  var subG = ac.createGain();
+  subG.gain.setValueAtTime(0.0001, when);
+  subG.gain.linearRampToValueAtTime(intensity * 5.5, when + 0.004);
+  subG.gain.exponentialRampToValueAtTime(0.001, when + 1.0);
+  subO.connect(subG); subO2.connect(subG); subG.connect(thunderBus);
+  subO.start(when); subO.stop(when + 1.05);
+  subO2.start(when); subO2.stop(when + 1.05);
+
+  // ─ 2) ボディ ─（200〜500Hz のミッドノイズ、頭が大きい） ─
+  var bodyDur = 0.32 + Math.random() * 0.12;
+  var bodyLen = Math.ceil(ac.sampleRate * bodyDur);
+  var bodyBuf = ac.createBuffer(2, bodyLen, ac.sampleRate);
+  for(var ch=0; ch<2; ch++){
+    var d = bodyBuf.getChannelData(ch);
+    for(var i=0; i<bodyLen; i++){
+      d[i] = (Math.random()*2-1) * Math.exp(-i / (bodyLen * 0.13));
+    }
+  }
+  var bodySrc = ac.createBufferSource(); bodySrc.buffer = bodyBuf;
+  var bodyBP = ac.createBiquadFilter(); bodyBP.type = "bandpass";
+  bodyBP.frequency.setValueAtTime(450, when);
+  bodyBP.frequency.exponentialRampToValueAtTime(180, when + bodyDur * 0.5);
+  bodyBP.Q.value = 1.5;
+  var bodyG = ac.createGain(); bodyG.gain.value = intensity * 5.0;
+  var bodyPan = ac.createStereoPanner();
+  bodyPan.pan.value = (Math.random()*2-1) * 0.5;
+  bodySrc.connect(bodyBP); bodyBP.connect(bodyG);
+  bodyG.connect(bodyPan); bodyPan.connect(thunderBus);
+  bodySrc.start(when); bodySrc.stop(when + bodyDur + 0.05);
+
+  // ─ 3) クラック ─（broadband、HP が降下、tanh で潰す） ─
+  var crackDur = 0.20 + Math.random() * 0.10;
+  var crackLen = Math.ceil(ac.sampleRate * crackDur);
+  var crackBuf = ac.createBuffer(2, crackLen, ac.sampleRate);
+  for(var ch=0; ch<2; ch++){
+    var d = crackBuf.getChannelData(ch);
+    for(var i=0; i<crackLen; i++){
+      d[i] = (Math.random()*2-1) * Math.exp(-i / (crackLen * 0.20));
+    }
+  }
+  var crackSrc = ac.createBufferSource(); crackSrc.buffer = crackBuf;
+  var crackHP = ac.createBiquadFilter(); crackHP.type = "highpass";
+  crackHP.frequency.setValueAtTime(2200, when);
+  crackHP.frequency.exponentialRampToValueAtTime(120, when + crackDur * 0.7);
+  var crackShape = ac.createWaveShaper();
+  var sc = new Float32Array(512);
+  for(var i=0; i<512; i++){
+    var x = i/256 - 1;
+    sc[i] = Math.tanh(x * 3) / Math.tanh(3);  // soft クリップ
+  }
+  crackShape.curve = sc;
+  var crackG = ac.createGain(); crackG.gain.value = intensity * 7.0;
+  var crackPan = ac.createStereoPanner();
+  crackPan.pan.value = (Math.random()*2-1) * 0.7;
+  crackSrc.connect(crackHP); crackHP.connect(crackShape); crackShape.connect(crackG);
+  crackG.connect(crackPan); crackPan.connect(thunderBus);
+  crackSrc.start(when); crackSrc.stop(when + crackDur + 0.05);
+
+  // ─ 4) 鳴動 ─（低域 brown rumble、長尺、LP が揺れる） ─
+  var rumbleDur = 8 + Math.random() * 9;
+  var rumbleLen = Math.ceil(ac.sampleRate * rumbleDur);
+  var rumbleBuf = ac.createBuffer(2, rumbleLen, ac.sampleRate);
+  for(var ch=0; ch<2; ch++){
+    var d = rumbleBuf.getChannelData(ch);
+    var last = 0;
+    for(var i=0; i<rumbleLen; i++){
+      var w = Math.random()*2-1;
+      last = last * 0.988 + w * 0.012;
+      d[i] = last * 35;
+    }
+  }
+  var rumbleSrc = ac.createBufferSource(); rumbleSrc.buffer = rumbleBuf;
+  var rumbleLP = ac.createBiquadFilter(); rumbleLP.type = "lowpass";
+  rumbleLP.frequency.value = 320; rumbleLP.Q.value = 1.4;
+  var rLfo = ac.createOscillator(); rLfo.frequency.value = 0.20 + Math.random() * 0.8;
+  var rLfoG = ac.createGain(); rLfoG.gain.value = 160;
+  rLfo.connect(rLfoG); rLfoG.connect(rumbleLP.frequency);
+  var rumbleG = ac.createGain();
+  rumbleG.gain.setValueAtTime(intensity * 3.0, when + 0.10);
+  rumbleG.gain.exponentialRampToValueAtTime(0.001, when + rumbleDur);
+  var rumblePan = ac.createStereoPanner();
+  rumblePan.pan.value = (Math.random()*2-1) * 0.45;
+  rumbleSrc.connect(rumbleLP); rumbleLP.connect(rumbleG);
+  rumbleG.connect(rumblePan); rumblePan.connect(thunderBus);
+  rumbleSrc.start(when + 0.04); rumbleSrc.stop(when + rumbleDur + 0.05);
+  rLfo.start(when); rLfo.stop(when + rumbleDur + 0.05);
+}
+
+/* ── 環境バブル（OCS の状態と独立した微小ポップ）──── */
+function ambientBubble(when, amp){
+  var fStart = 1200 + Math.random() * 2500;
+  var fEnd   = fStart * (0.5 + Math.random() * 0.4);
+  var dur = 0.025 + Math.random() * 0.08;
+  var len = Math.ceil(ac.sampleRate * dur);
+  var buf = ac.createBuffer(1, len, ac.sampleRate);
+  var d = buf.getChannelData(0);
+  for(var i=0; i<len; i++) d[i] = (Math.random()*2-1) * Math.exp(-i / (len * 0.18));
+  var src = ac.createBufferSource(); src.buffer = buf;
+  var bp = ac.createBiquadFilter(); bp.type = "bandpass";
+  bp.Q.value = 8 + Math.random() * 6;
+  bp.frequency.setValueAtTime(fStart, when);
+  bp.frequency.exponentialRampToValueAtTime(fEnd, when + dur * 0.6);
+  var pan = ac.createStereoPanner();
+  pan.pan.value = (Math.random()*2-1) * 0.9;
+  var g = ac.createGain(); g.gain.value = amp;
+  src.connect(bp); bp.connect(g); g.connect(pan); pan.connect(masterPan);
+  src.start(when); src.stop(when + dur + 0.05);
+}
+
+/* ── 波音スケジューラ（沖と海岸で確率発火）──────── */
+function ripplesTick(){
+  if(!running) return;
+  var w = weatherProfile();
+  var now = ac.currentTime;
+
+  if(P.oki.on && Math.random() < 0.045 * w.chap){
+    chapChap(now + 0.02, [400, 1200], 0.07 * w.chap, [0.05, 0.22], "oki");
+  }
+  if(P.kg.on){
+    if(Math.random() < 0.07 * w.chap){
+      chapChap(now + 0.02, [1500, 4500], 0.05 * w.chap, [0.03, 0.14], "kg");
+    }
+    if(Math.random() < 0.075 * w.chap){
+      chapChap(now + 0.02, [800, 2200], 0.045 * w.chap, [0.04, 0.18], "kg");
+    }
+    // 波の打ち寄せ ─ さざ波で 5〜8 秒に一度、荒波で 2〜3 秒に一度になるよう頻度を上げた
+    if(Math.random() < 0.013 * w.wave){
+      waveNoise(now + 0.05, 0.045 * w.wave);
+    }
+  }
+
+  // 環境バブル：OCS の on/off と独立して、潮の小さな泡が常に立つ
+  if(Math.random() < 0.022 * w.chap){
+    ambientBubble(now + 0.02, 0.028 * w.chap);
+  }
+  // 稀に低めの遠い波音（中波）
+  if(P.kg.on && Math.random() < 0.003 * w.wave){
+    waveNoise(now + 0.05, 0.025 * w.wave);
+  }
+  // 雷：頻度に応じて発火（衝撃の前に 1.5〜3.5 秒の低音接近があるので
+  // ある程度先に予約する。100 で約 2 秒に一度のペース）
+  if(P.thunder > 0 && Math.random() < (P.thunder / 100) * 0.025){
+    // 衝撃は 2〜3 秒先 ─ 低音ゴロゴロが接近する時間を確保
+    thunder(now + 2.2 + Math.random() * 1.0, 1.4 + Math.random() * 1.1);
+    // 連続雷：1 つ目の衝撃の数秒後に重ねる（>40 で 70%）
+    if(P.thunder > 40 && Math.random() < 0.70){
+      thunder(now + 4.5 + Math.random() * 1.5, 1.0 + Math.random() * 0.9);
+    }
+    // 三連雷：更にもう一発（>70 で 45%）
+    if(P.thunder > 70 && Math.random() < 0.45){
+      thunder(now + 6.5 + Math.random() * 2.0, 0.8 + Math.random() * 0.8);
+    }
+  }
+
+}
+
+/* ── 潮流：マスターパンを時間関数で揺らす ──────── */
+function currentTick(){
+  if(!running) return;
+  var t = ac.currentTime - t0;
+  var p = currentPan(t);
+  masterPan.pan.setTargetAtTime(p, ac.currentTime, 0.15);
+}
+
+/* ── 海 FX ─────────────────────────────────────── */
+var FX = { depth:null, width:null, chorus:null, drive:null };
+
+function makeDepthIR(size01){
+  var rate = ac.sampleRate;
+  var dur = 2.0 + (size01/100) * 5.0;        // 2〜7 秒
+  var len = Math.ceil(rate * dur);
+  var buf = ac.createBuffer(2, len, rate);
+  var pre = Math.floor(rate * 0.025);
+  var falloff = 1.4 + (size01/100) * 1.4;
+  for(var ch=0; ch<2; ch++){
+    var d = buf.getChannelData(ch);
+    for(var i=0; i<len; i++){
+      if(i < pre){ d[i] = 0; continue; }
+      var t = (i - pre) / (len - pre);
+      d[i] = (Math.random()*2-1) * Math.pow(1-t, falloff);
+    }
+  }
+  return buf;
+}
+
+var DEPTH_IR_TIMER = null;
+function reloadDepthIR(){
+  if(DEPTH_IR_TIMER) clearTimeout(DEPTH_IR_TIMER);
+  DEPTH_IR_TIMER = setTimeout(function(){
+    if(FX.depth && FX.depth.conv) FX.depth.conv.buffer = makeDepthIR(P.fx.depth.size);
+  }, 160);
+}
+
+function makeDriveCurve(amount01){
+  var n = 1024;
+  var curve = new Float32Array(n);
+  var k = 1 + amount01 * 9;
+  for(var i=0; i<n; i++){
+    var x = i/(n/2) - 1;
+    curve[i] = Math.tanh(x * k) / Math.tanh(k);
+  }
+  return curve;
+}
+
+function setupFX(){
+  // 奥行き：大規模残響
+  FX.depth = {};
+  FX.depth.in   = ac.createGain();
+  FX.depth.conv = ac.createConvolver();
+  FX.depth.conv.buffer = makeDepthIR(P.fx.depth.size);
+  FX.depth.out  = ac.createGain();
+  FX.depth.out.gain.value = P.fx.depth.mix / 100;
+  FX.depth.in.connect(FX.depth.conv);
+  FX.depth.conv.connect(FX.depth.out);
+  FX.depth.out.connect(masterPan);
+
+  // 拡幅：M/S 行列で side を可変ブースト（mix>100 で広く、<100 で狭く）
+  FX.width = {};
+  FX.width.in  = ac.createGain();
+  FX.width.out = ac.createGain();
+  var spW = ac.createChannelSplitter(2);
+  var mgW = ac.createChannelMerger(2);
+  FX.width.in.connect(spW);
+  FX.width._lL = ac.createGain();
+  FX.width._lR = ac.createGain();
+  FX.width._rL = ac.createGain();
+  FX.width._rR = ac.createGain();
+  spW.connect(FX.width._lL, 0); spW.connect(FX.width._lR, 0);
+  spW.connect(FX.width._rL, 1); spW.connect(FX.width._rR, 1);
+  FX.width._lL.connect(mgW, 0, 0); FX.width._rL.connect(mgW, 0, 0);
+  FX.width._lR.connect(mgW, 0, 1); FX.width._rR.connect(mgW, 0, 1);
+  mgW.connect(FX.width.out);
+  FX.width.out.connect(masterPan);
+  updateWidth();
+
+  // 渦：左右で別レートのコーラス
+  FX.chorus = {};
+  FX.chorus.in   = ac.createGain();
+  FX.chorus.out  = ac.createGain();
+  var spC = ac.createChannelSplitter(2);
+  var mgC = ac.createChannelMerger(2);
+  FX.chorus.in.connect(spC);
+  FX.chorus.dL = ac.createDelay(0.05); FX.chorus.dL.delayTime.value = 0.018;
+  FX.chorus.dR = ac.createDelay(0.05); FX.chorus.dR.delayTime.value = 0.022;
+  FX.chorus.lfoL = ac.createOscillator(); FX.chorus.lfoL.frequency.value = P.fx.chorus.rate / 100;
+  FX.chorus.lfoR = ac.createOscillator(); FX.chorus.lfoR.frequency.value = (P.fx.chorus.rate / 100) * 1.3;
+  FX.chorus.lfoGL = ac.createGain(); FX.chorus.lfoGL.gain.value = 0.006 * (P.fx.chorus.depth / 100);
+  FX.chorus.lfoGR = ac.createGain(); FX.chorus.lfoGR.gain.value = 0.006 * (P.fx.chorus.depth / 100);
+  FX.chorus.lfoL.connect(FX.chorus.lfoGL); FX.chorus.lfoGL.connect(FX.chorus.dL.delayTime);
+  FX.chorus.lfoR.connect(FX.chorus.lfoGR); FX.chorus.lfoGR.connect(FX.chorus.dR.delayTime);
+  spC.connect(FX.chorus.dL, 0);
+  spC.connect(FX.chorus.dR, 1);
+  FX.chorus.dL.connect(mgC, 0, 0);
+  FX.chorus.dR.connect(mgC, 0, 1);
+  FX.chorus.out.gain.value = (P.fx.chorus.depth / 100) * 0.5;
+  mgC.connect(FX.chorus.out);
+  FX.chorus.out.connect(masterPan);
+  FX.chorus.lfoL.start(); FX.chorus.lfoR.start();
+
+  // 飽和：tanh waveshaper
+  FX.drive = {};
+  FX.drive.in     = ac.createGain();
+  FX.drive.shaper = ac.createWaveShaper();
+  FX.drive.shaper.curve = makeDriveCurve(P.fx.drive.amount / 100);
+  FX.drive.out    = ac.createGain();
+  FX.drive.out.gain.value = (P.fx.drive.amount / 100) * 0.4;
+  FX.drive.in.connect(FX.drive.shaper);
+  FX.drive.shaper.connect(FX.drive.out);
+  FX.drive.out.connect(masterPan);
+
+  // 各 OCS から FX バスへ送り、ドライも直接 masterPan へ
+  ["ds","oki","kg"].forEach(function(name){
+    if(!OCS[name]) return;
+    OCS[name].out.connect(FX.depth.in);
+    OCS[name].out.connect(FX.width.in);
+    OCS[name].out.connect(FX.chorus.in);
+    OCS[name].out.connect(FX.drive.in);
+    OCS[name].out.connect(masterPan);  // dry
+  });
+}
+
+function updateWidth(){
+  // 100 が素通り、それより上で side ブースト、下で狭く
+  var boost = P.fx.width.mix / 100;
+  var ll = 0.5 + 0.5 * boost;
+  var lr = 0.5 - 0.5 * boost;
+  FX.width._lL.gain.value = ll;
+  FX.width._rR.gain.value = ll;
+  FX.width._lR.gain.value = lr;
+  FX.width._rL.gain.value = lr;
+}
+
+function applyFX(type){
+  if(!FX[type]) return;
+  if(type === "depth"){
+    FX.depth.out.gain.value = P.fx.depth.mix / 100;
+    reloadDepthIR();
+  } else if(type === "width"){
+    updateWidth();
+  } else if(type === "chorus"){
+    FX.chorus.lfoL.frequency.setTargetAtTime(P.fx.chorus.rate / 100, ac.currentTime, 0.05);
+    FX.chorus.lfoR.frequency.setTargetAtTime((P.fx.chorus.rate / 100) * 1.3, ac.currentTime, 0.05);
+    FX.chorus.lfoGL.gain.value = 0.006 * (P.fx.chorus.depth / 100);
+    FX.chorus.lfoGR.gain.value = 0.006 * (P.fx.chorus.depth / 100);
+    FX.chorus.out.gain.value  = (P.fx.chorus.depth / 100) * 0.5;
+  } else if(type === "drive"){
+    FX.drive.shaper.curve = makeDriveCurve(P.fx.drive.amount / 100);
+    FX.drive.out.gain.value = (P.fx.drive.amount / 100) * 0.4;
+  }
+}
+
+function elsysMacro(name,value){
+  var v=Math.max(0,Math.min(1,+value||0));
+  if(name==='macro.a'){
+    P.ds.level=100*v;P.oki.level=100*v;P.kg.level=100*v;P.rain=100*v;P.thunder=80*v;
+    applyOcsLevels();
+  }else if(name==='macro.b'){
+    P.drift=200*v;P.fx.drive.amount=100*v;P.fx.chorus.rate=100*v;
+    applyFX('drive');applyFX('chorus');
+  }else if(name==='macro.c'){
+    P.fx.depth.mix=100*v;P.fx.depth.size=100*v;P.fx.width.mix=100+100*v;P.fx.chorus.depth=100*v;
+    ['depth','width','chorus'].forEach(applyFX);
+  }else if(name==='volume'){
+    P.master=v*v;applyMaster();
+  }
+  syncUI();
+}
+
+function startOceanClock(){
+  if(!oceanClock){
+    var src="let a=[];onmessage=e=>{a.forEach(clearInterval);a=[];if(e.data==='start'){a=[setInterval(()=>postMessage('ripples'),50),setInterval(()=>postMessage('current'),80),setInterval(()=>postMessage('drift'),120)]}}";
+    oceanClock=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));
+    oceanClock.onmessage=function(e){if(e.data==='ripples')ripplesTick();else if(e.data==='current')currentTick();else driftTick();};
+  }
+  oceanClock.postMessage('start');
+}
+
+/* ── 運び ───────────────────────────────────────── */
+function ensure(){
+  if(ac) return;
+  ac = new (window.AudioContext || window.webkitAudioContext)();
+  master = ac.createGain(); master.gain.value = 0.0001;
+  master.connect(ac.destination);
+  masterPan = ac.createStereoPanner();
+  masterPan.connect(master);
+  ann = ac.createAnalyser(); ann.fftSize = 1024; master.connect(ann);
+  abuf = new Float32Array(ann.fftSize);
+
+  // 三層のオシレータ。海岸ほどステレオに広い
+  // 海の色付けフィルタ：深海=暗く沈む LP、沖=中域に揺らぎ、海岸=低域カットで開く HP
+  OCS.ds  = setupOcs(P.ds.voices,  0.30, {type:"lowpass",  freq:900,  Q:0.8, lfoHz:0.05, lfoDepth:240});
+  OCS.oki = setupOcs(P.oki.voices, 0.55, {type:"lowpass",  freq:2400, Q:1.0, lfoHz:0.10, lfoDepth:700});
+  OCS.kg  = setupOcs(P.kg.voices,  0.85, {type:"highpass", freq:280,  Q:0.7});
+
+  setupAmbient();
+  setupRain();
+  setupFX();
+  applyAllOcsChords();
+  applyOcsLevels();
+
+  // 葉：?field の時だけ場へ参加する
+  if(FIELD_ON) registerElSystemaInstrument({
+    id: "ocean",
+    audioContext: ac,
+    outputNode: master,
+    play: run, stop: halt,
+    setParam: function(n, v){
+      if(/^(macro\.[abc]|volume)$/.test(n)){ elsysMacro(n,v); return; }
+      // ds/oki/kg のパラメータ：ds.level, kg.octave など
+      if(typeof n === "string" && /^(ds|oki|kg)\./.test(n)){
+        var op = n.split(".");
+        if(op.length === 2 && P[op[0]]){
+          var k = op[1];
+          if(k === "on") P[op[0]].on = !!(+v || v === true || v === "true");
+          else if(k === "octave" || k === "swell") P[op[0]][k] = +v > 5 ? +v/100 : +v;
+          else P[op[0]][k] = +v;
+          applyOcsLevels();
+          if(k === "octave") applyOcsChord(op[0]);
+          syncUI();
+          return;
+        }
+      }
+      // FX：fx.depth.mix など
+      if(typeof n === "string" && n.indexOf("fx.") === 0){
+        var fp = n.split(".");
+        if(fp.length === 3 && P.fx[fp[1]]){
+          P.fx[fp[1]][fp[2]] = +v;
+          applyFX(fp[1]);
+          syncUI();
+          return;
+        }
+      }
+      if(!(n in P)) return;
+      if(typeof P[n] === "string"){
+        P[n] = String(v);
+        if(n === "scale") applyAllOcsChords();
+        if(n === "weather") applyOcsLevels();
+      } else {
+        var nv = +v;
+        if(n === "master") P.master = nv > 2 ? nv/100 : nv;
+        else P[n] = nv;
+        if(n === "root") applyAllOcsChords();
+      }
+      syncUI();
+      applyMaster();
+    },
+    getPreset: function(){ return JSON.parse(JSON.stringify(P)); },
+    loadPreset: function(p){
+      if(!p) return;
+      Object.assign(P, p);
+      applyAllOcsChords();
+      applyOcsLevels();
+      ["depth","width","chorus","drive"].forEach(applyFX);
+      syncUI();
+    },
+  });
+}
+
+function applyMaster(){
+  if(!master) return;
+  // 出力は内部で 1/12 にスケール（スライダ表示はそのまま）
+  master.gain.linearRampToValueAtTime(running ? P.master * (1/12) : 0, ac.currentTime + 0.08);
+}
+
+async function run(){
+  ensure();
+  if(running) return;
+  if(ac.state === "suspended") await ac.resume();
+  running = true; t0 = ac.currentTime;
+  applyMaster();
+  document.getElementById("run").classList.add("live");
+  ripplesTick();currentTick();driftTick();startOceanClock();
+}
+
+function halt(){
+  if(!running) return;
+  running = false;
+  if(oceanClock) oceanClock.postMessage('stop');
+  applyMaster();
+  document.getElementById("run").classList.remove("live");
+}
+
+/* ── 描画（オシロ＋潮流パン位置）───────────────── */
+var cv = document.getElementById("scope");
+var cx = cv.getContext("2d");
+
+function sizeCanvas(){
+  var d = window.devicePixelRatio || 1;
+  cv.width = cv.clientWidth * d; cv.height = cv.clientHeight * d;
+  cx.setTransform(d,0,0,d,0,0);
+}
+window.addEventListener("resize", sizeCanvas); sizeCanvas();
+
+function draw(){
+  var W = cv.clientWidth, H = cv.clientHeight;
+  cx.clearRect(0,0,W,H);
+  // 水平線（海面）
+  cx.strokeStyle = "rgba(214,210,196,.07)"; cx.lineWidth = 0.5;
+  cx.beginPath(); cx.moveTo(0,H/2); cx.lineTo(W,H/2); cx.stroke();
+  // 潮流の現在パン位置を縦縞で示す
+  if(masterPan){
+    var pp = (masterPan.pan.value + 1) / 2;
+    cx.fillStyle = "rgba(136,185,196,.12)";
+    cx.fillRect(pp * W - 1, 0, 2, H);
+  }
+  // 波形
+  if(ann){
+    ann.getFloatTimeDomainData(abuf);
+    cx.strokeStyle = "rgba(136,185,196,.55)"; cx.lineWidth = 1;
+    cx.beginPath();
+    for(var i=0;i<abuf.length;i++){
+      var x = i/abuf.length*W, y = H/2 + abuf[i]*H*0.42;
+      if(i) cx.lineTo(x,y); else cx.moveTo(x,y);
+    }
+    cx.stroke();
+  }
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+/* ── 物理表示 ─────────────────────────────────── */
+function readout(){
+  var w = weatherProfile();
+  document.getElementById("physh").innerHTML =
+    "音階 <b>"+P.scale+"</b> ・基音 <b>"+P.root+"</b> Hz<br>" +
+    "潮流 <b>"+P.current+"</b> ・天候 <b>"+P.weather+"</b><br>" +
+    "うねり <b>"+(w.swell*100).toFixed(0)+"%</b> ・打 <b>"+w.chap.toFixed(1)+"</b> ・転調 <b>"+w.rotate.toFixed(2)+"</b>";
+}
+
+/* ── UI ─────────────────────────────────────────── */
+var OCS_DEFS = [
+  { key:"ds",  name:"深 海 ─ 低 中 域" },
+  { key:"oki", name:"沖 ─ 中 域" },
+  { key:"kg",  name:"海 岸 ─ 中 高 域" },
+];
+
+// octave と swell はパーセント表記（0.50 → 50、1.00 → 100、4.00 → 400）
+var OCS_PARAMS = [
+  { key:"level",  label:"音量",     min:0,  max:100, pct:false },
+  { key:"octave", label:"オクター", min:25, max:400, pct:true  },
+  { key:"swell",  label:"うねり",   min:0,  max:200, pct:true  },
+];
+
+function renderOcs(){
+  var host = document.getElementById("ocsPanels");
+  if(!host) return;
+  var html = "";
+  OCS_DEFS.forEach(function(def){
+    var p = P[def.key];
+    html += '<div class="panel ocs'+(p.on?'':' off')+'" data-ocs="'+def.key+'">'
+      + '<div class="ph">'
+      + '<label class="von"><input type="checkbox" id="o_'+def.key+'_on"'+(p.on?' checked':'')+'> '+def.name+'</label>'
+      + '</div><div class="body">';
+    OCS_PARAMS.forEach(function(prm){
+      var v = prm.pct ? Math.round(p[prm.key] * 100) : p[prm.key];
+      html += '<div class="row">'
+        + '<span class="k">'+prm.label+'</span>'
+        + '<input type="range" id="o_'+def.key+'_'+prm.key+'" min="'+prm.min+'" max="'+prm.max+'" value="'+v+'">'
+        + '<span class="val" id="o_'+def.key+'_'+prm.key+'V">'+v+'</span>'
+        + '</div>';
+    });
+    html += '</div></div>';
+  });
+  host.innerHTML = html;
+}
+
+var FX_DEFS = [
+  { type:"depth",  title:"奥 行 き ─ 大 規 模 残 響", params:[
+    { key:"mix",  label:"Mix",  min:0, max:100 },
+    { key:"size", label:"Size", min:0, max:100 },
+  ]},
+  { type:"width",  title:"拡 幅 ─ M / S エ ン ハ ン サ ー", params:[
+    { key:"mix", label:"Width", min:0, max:200 },
+  ]},
+  { type:"chorus", title:"渦 ─ コ ー ラ ス", params:[
+    { key:"rate",  label:"速度", min:0, max:200 },
+    { key:"depth", label:"深度", min:0, max:100 },
+  ]},
+  { type:"drive",  title:"飽 和 ─ サ チ ュ レ ー シ ョ ン", params:[
+    { key:"amount", label:"量", min:0, max:100 },
+  ]},
+];
+
+function renderFX(){
+  var host = document.getElementById("fxPanels");
+  if(!host) return;
+  var html = "";
+  FX_DEFS.forEach(function(def){
+    html += '<div class="panel"><div class="ph">'+def.title+'</div><div class="body">';
+    def.params.forEach(function(p){
+      var v = P.fx[def.type][p.key];
+      html += '<div class="row">'
+        + '<span class="k">'+p.label+'</span>'
+        + '<input type="range" id="fx_'+def.type+'_'+p.key+'" min="'+p.min+'" max="'+p.max+'" value="'+v+'">'
+        + '<span class="val" id="fx_'+def.type+'_'+p.key+'V">'+v+'</span>'
+        + '</div>';
+    });
+    html += '</div></div>';
+  });
+  host.innerHTML = html;
+}
+
+function syncUI(){
+  document.getElementById("master").value = Math.round(P.master * 100);
+  document.getElementById("masterV").textContent = Math.round(P.master * 100);
+  document.getElementById("root").value = P.root;
+  document.getElementById("rootV").textContent = P.root;
+  document.getElementById("scaleSel").value = P.scale;
+  document.getElementById("currentSel").value = P.current;
+  document.getElementById("currentDepth").value = P.currentDepth;
+  document.getElementById("currentDepthV").textContent = P.currentDepth;
+  document.getElementById("weatherSel").value = P.weather;
+  document.getElementById("drift").value = P.drift;
+  document.getElementById("driftV").textContent = P.drift;
+  document.getElementById("rain").value = P.rain;
+  document.getElementById("rainV").textContent = P.rain;
+  document.getElementById("thunder").value = P.thunder;
+  document.getElementById("thunderV").textContent = P.thunder;
+
+  OCS_DEFS.forEach(function(def){
+    var p = P[def.key];
+    var on = document.getElementById("o_"+def.key+"_on");
+    if(on) on.checked = !!p.on;
+    var panel = document.querySelector('.ocs[data-ocs="'+def.key+'"]');
+    if(panel) panel.classList.toggle("off", !p.on);
+    OCS_PARAMS.forEach(function(prm){
+      var e = document.getElementById("o_"+def.key+"_"+prm.key);
+      var v = document.getElementById("o_"+def.key+"_"+prm.key+"V");
+      var val = prm.pct ? Math.round(p[prm.key] * 100) : p[prm.key];
+      if(e) e.value = val;
+      if(v) v.textContent = val;
+    });
+  });
+
+  FX_DEFS.forEach(function(def){
+    def.params.forEach(function(p){
+      var e = document.getElementById("fx_"+def.type+"_"+p.key);
+      var v = document.getElementById("fx_"+def.type+"_"+p.key+"V");
+      var val = P.fx[def.type][p.key];
+      if(e) e.value = val;
+      if(v) v.textContent = val;
+    });
+  });
+  readout();
+}
+
+function bindUI(){
+  // 音階
+  var ssel = document.getElementById("scaleSel");
+  ssel.innerHTML = SCALE_NAMES.map(function(s){
+    return '<option value="'+s+'"'+(s===P.scale?' selected':'')+'>'+s+'</option>';
+  }).join("");
+  ssel.addEventListener("change", function(){
+    P.scale = ssel.value;
+    if(ac) applyAllOcsChords();
+    readout();
+  });
+
+  // 潮流
+  var csel = document.getElementById("currentSel");
+  csel.innerHTML = CURRENT_NAMES.map(function(s){
+    return '<option value="'+s+'"'+(s===P.current?' selected':'')+'>'+s+'</option>';
+  }).join("");
+  csel.addEventListener("change", function(){
+    P.current = csel.value;
+    readout();
+  });
+
+  // 天候
+  var wsel = document.getElementById("weatherSel");
+  wsel.innerHTML = WEATHER_NAMES.map(function(s){
+    return '<option value="'+s+'"'+(s===P.weather?' selected':'')+'>'+s+'</option>';
+  }).join("");
+  wsel.addEventListener("change", function(){
+    P.weather = wsel.value;
+    // 天候プリセットの rain/thunder 値を流し込み（雨嵐で雨と雷が自動で立ち上がる）
+    var wr = WEATHER_RAIN[P.weather];
+    if(wr){
+      P.rain = wr.rain;
+      P.thunder = wr.thunder;
+    }
+    if(ac){ applyOcsLevels(); applyRain(); }
+    syncUI();
+    readout();
+  });
+
+  function bindRange(id, key, scale01, after){
+    var e = document.getElementById(id), v = document.getElementById(id+"V");
+    if(!e) return;
+    e.addEventListener("input", function(){
+      var val = +e.value;
+      P[key] = scale01 ? val/100 : val;
+      if(v) v.textContent = val;
+      if(after) after();
+      if(key === "master") applyMaster();
+      readout();
+    });
+  }
+  bindRange("master",       "master",       true);
+  bindRange("root",          "root",          false, function(){ if(ac) applyAllOcsChords(); });
+  bindRange("currentDepth",  "currentDepth",  false);
+  bindRange("drift",         "drift",         false);
+  bindRange("rain",          "rain",          false, function(){ if(ac) applyRain(); });
+  bindRange("thunder",       "thunder",       false);
+
+  // OCS パネル
+  renderOcs();
+  OCS_DEFS.forEach(function(def){
+    var on = document.getElementById("o_"+def.key+"_on");
+    if(on){
+      on.addEventListener("change", function(){
+        P[def.key].on = on.checked;
+        var panel = document.querySelector('.ocs[data-ocs="'+def.key+'"]');
+        if(panel) panel.classList.toggle("off", !on.checked);
+        if(ac) applyOcsLevels();
+      });
+    }
+    OCS_PARAMS.forEach(function(prm){
+      var e = document.getElementById("o_"+def.key+"_"+prm.key);
+      var v = document.getElementById("o_"+def.key+"_"+prm.key+"V");
+      if(!e) return;
+      e.addEventListener("input", function(){
+        var val = +e.value;
+        P[def.key][prm.key] = prm.pct ? val/100 : val;
+        if(v) v.textContent = val;
+        if(prm.key === "octave"){ if(ac) applyOcsChord(def.key); }
+        else if(ac) applyOcsLevels();
+      });
+    });
+  });
+
+  // FX パネル
+  renderFX();
+  FX_DEFS.forEach(function(def){
+    def.params.forEach(function(p){
+      var e = document.getElementById("fx_"+def.type+"_"+p.key);
+      var v = document.getElementById("fx_"+def.type+"_"+p.key+"V");
+      if(!e) return;
+      e.addEventListener("input", function(){
+        P.fx[def.type][p.key] = +e.value;
+        if(v) v.textContent = e.value;
+        if(ac) applyFX(def.type);
+      });
+    });
+  });
+
+  document.getElementById("run").onclick  = run;
+  document.getElementById("halt").onclick = halt;
+}
+bindUI(); syncUI();
+if(FIELD_ON) ensure();
+
+setInterval(function(){
+  var clk = document.getElementById("clock");
+  if(running && ac){
+    var s = Math.floor(ac.currentTime - t0);
+    clk.textContent = ("0"+Math.floor(s/60)).slice(-2)+":"+("0"+(s%60)).slice(-2);
+  } else {
+    clk.textContent = "--:--";
+  }
+}, 500);
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cell Noise Geometry Lab</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="styles.css?v=20260517-18" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Geometry-driven noise generator</p>
+          <h1>Cell Noise Lab</h1>
+          <p class="build-tag">Build · geometry osc / noise lab</p>
+        </div>
+        <div class="hero-actions">
+          <button id="audioToggle">Audio</button>
+          <button id="transportToggle">Seq</button>
+          <button id="autogenesisToggle">Auto</button>
+          <button id="mutateButton">Mutate</button>
+        </div>
+      </section>
+
+      <section class="layout">
+        <aside class="panel controls">
+          <details class="param-group" open>
+            <summary>Tempo & Form</summary>
+            <div class="group-body">
+              <label class="slider">
+                <span>BPM</span>
+                <input id="bpm" type="range" min="90" max="160" value="128" />
+                <strong id="bpmValue">128</strong>
+              </label>
+
+              <section class="tab-block">
+                <span>Rhythm</span>
+                <div id="rhythmTabs" class="tab-row"></div>
+              </section>
+
+              <section class="tab-block">
+                <span>Function</span>
+                <div id="functionTabs" class="tab-row"></div>
+              </section>
+            </div>
+          </details>
+
+          <details class="param-group" open>
+            <summary>Scale & Root</summary>
+            <div class="group-body">
+              <section class="tab-block">
+                <span>Scale</span>
+                <div id="scaleTabs" class="tab-row"></div>
+              </section>
+
+              <section class="tab-block">
+                <span>Root note</span>
+                <div id="rootNoteTabs" class="tab-row"></div>
+              </section>
+
+              <section class="tab-block root-tabs">
+                <span>Root degree</span>
+                <div>
+                  <small>OSC1</small>
+                  <div id="osc1RootTabs" class="tab-row"></div>
+                </div>
+                <div>
+                  <small>Drone</small>
+                  <div id="droneRootTabs" class="tab-row"></div>
+                </div>
+                <div>
+                  <small>OSC2</small>
+                  <div id="osc2RootTabs" class="tab-row"></div>
+                </div>
+              </section>
+            </div>
+          </details>
+
+          <details class="param-group" open>
+            <summary>Scan source</summary>
+            <div class="group-body">
+              <section class="tab-block">
+                <span>Source</span>
+                <div id="visualTabs" class="tab-row"></div>
+              </section>
+
+              <label class="slider">
+                <span>Image input</span>
+                <input id="imageInput" type="file" accept="image/*" />
+              </label>
+
+              <section class="tab-block">
+                <span>Scan path</span>
+                <div id="scanPathTabs" class="tab-row"></div>
+              </section>
+            </div>
+          </details>
+
+          <details class="param-group">
+            <summary>Filter & Envelope</summary>
+            <div class="group-body">
+              <label class="slider">
+                <span>Cutoff</span>
+                <input id="cutoff" type="range" min="180" max="2600" value="900" />
+                <strong id="cutoffValue">900</strong>
+              </label>
+              <label class="slider">
+                <span>Resonance</span>
+                <input id="resonance" type="range" min="1" max="24" step="0.1" value="12" />
+                <strong id="resonanceValue">12.0</strong>
+              </label>
+              <label class="slider">
+                <span>Decay</span>
+                <input id="decay" type="range" min="0.08" max="0.6" step="0.01" value="0.24" />
+                <strong id="decayValue">0.24</strong>
+              </label>
+              <label class="slider">
+                <span>Accent</span>
+                <input id="accent" type="range" min="0.2" max="1.6" step="0.01" value="0.8" />
+                <strong id="accentValue">0.80</strong>
+              </label>
+              <label class="slider">
+                <span>Slide</span>
+                <input id="slide" type="range" min="0.02" max="0.3" step="0.01" value="0.12" />
+                <strong id="slideValue">0.12</strong>
+              </label>
+            </div>
+          </details>
+
+          <details class="param-group">
+            <summary>Tone</summary>
+            <div class="group-body">
+              <label class="slider">
+                <span>Tone bright</span>
+                <input id="toneBrightness" type="range" min="0.2" max="2.4" step="0.01" value="1.1" />
+                <strong id="toneBrightnessValue">1.10</strong>
+              </label>
+              <label class="slider">
+                <span>Texture</span>
+                <input id="grit" type="range" min="0" max="1.4" step="0.01" value="0.15" />
+                <strong id="gritValue">0.15</strong>
+              </label>
+              <label class="slider">
+                <span>Master drive</span>
+                <input id="masterDrive" type="range" min="0" max="2.4" step="0.01" value="0.08" />
+                <strong id="masterDriveValue">0.08</strong>
+              </label>
+              <label class="slider">
+                <span>Air mix</span>
+                <input id="noiseMix" type="range" min="0" max="1" step="0.01" value="0.24" />
+                <strong id="noiseMixValue">0.24</strong>
+              </label>
+              <label class="slider">
+                <span>Edge bright</span>
+                <input id="clickAmount" type="range" min="0" max="1.6" step="0.01" value="0.72" />
+                <strong id="clickAmountValue">0.72</strong>
+              </label>
+              <label class="slider">
+                <span>Harmonics</span>
+                <input id="harmonics" type="range" min="0" max="1.6" step="0.01" value="1" />
+                <strong id="harmonicsValue">1.00</strong>
+              </label>
+            </div>
+          </details>
+
+          <details class="param-group">
+            <summary>OSC1 / Drone / OSC2</summary>
+            <div class="group-body">
+              <section class="tab-block voice-tabs">
+                <span>OSC1 voice</span>
+                <div id="osc1VoiceTabs" class="tab-row"></div>
+              </section>
+              <section class="tab-block voice-tabs">
+                <span>Drone voice</span>
+                <div id="droneVoiceTabs" class="tab-row"></div>
+              </section>
+              <section class="tab-block voice-tabs">
+                <span>OSC2 voice</span>
+                <div id="osc2VoiceTabs" class="tab-row"></div>
+              </section>
+
+              <label class="slider">
+                <span>OSC1 lvl</span>
+                <input id="bassLevel" type="range" min="0" max="1.2" step="0.01" value="0.72" />
+                <strong id="bassLevelValue">0.72</strong>
+              </label>
+              <label class="slider">
+                <span>OSC1 drive</span>
+                <input id="osc1Drive" type="range" min="0" max="2.4" step="0.01" value="0.55" />
+                <strong id="osc1DriveValue">0.55</strong>
+              </label>
+              <label class="slider">
+                <span>OSC1 spread</span>
+                <input id="osc1Spread" type="range" min="0" max="40" step="1" value="12" />
+                <strong id="osc1SpreadValue">12</strong>
+              </label>
+              <label class="slider">
+                <span>OSC1 motion</span>
+                <input id="osc1Motion" type="range" min="0" max="1.5" step="0.01" value="0.85" />
+                <strong id="osc1MotionValue">0.85</strong>
+              </label>
+
+              <label class="slider">
+                <span>Drone lvl</span>
+                <input id="droneLevel" type="range" min="0" max="1.2" step="0.01" value="0" />
+                <strong id="droneLevelValue">0.00</strong>
+              </label>
+              <label class="slider">
+                <span>Drone drive</span>
+                <input id="droneDrive" type="range" min="0" max="2.4" step="0.01" value="0.18" />
+                <strong id="droneDriveValue">0.18</strong>
+              </label>
+              <label class="slider">
+                <span>Drone spread</span>
+                <input id="droneSpread" type="range" min="0" max="40" step="1" value="8" />
+                <strong id="droneSpreadValue">8</strong>
+              </label>
+              <label class="slider">
+                <span>Drone LFO rt</span>
+                <input id="droneLfoRate" type="range" min="0.02" max="2" step="0.01" value="0.18" />
+                <strong id="droneLfoRateValue">0.18</strong>
+              </label>
+              <label class="slider">
+                <span>Drone LFO dp</span>
+                <input id="droneLfoDepth" type="range" min="0" max="1200" step="10" value="420" />
+                <strong id="droneLfoDepthValue">420</strong>
+              </label>
+
+              <label class="slider">
+                <span>OSC2 lvl</span>
+                <input id="percussionLevel" type="range" min="0" max="1.2" step="0.01" value="0.36" />
+                <strong id="percussionLevelValue">0.36</strong>
+              </label>
+              <label class="slider">
+                <span>OSC2 drive</span>
+                <input id="osc2Drive" type="range" min="0" max="2.4" step="0.01" value="0.5" />
+                <strong id="osc2DriveValue">0.50</strong>
+              </label>
+              <label class="slider">
+                <span>OSC2 spread</span>
+                <input id="osc2Spread" type="range" min="0" max="40" step="1" value="16" />
+                <strong id="osc2SpreadValue">16</strong>
+              </label>
+              <label class="slider">
+                <span>OSC2 motion</span>
+                <input id="osc2Motion" type="range" min="0" max="1.5" step="0.01" value="1.05" />
+                <strong id="osc2MotionValue">1.05</strong>
+              </label>
+            </div>
+          </details>
+        </aside>
+
+        <section class="panel visual">
+          <section class="source-stage">
+            <div class="source-stage-head">
+              <div>
+                <span>Default source</span>
+                <strong>cell2.vector.svg</strong>
+              </div>
+              <div class="source-pill">front-loaded</div>
+            </div>
+            <img class="source-stage-image" src="assets/cell2.vector.svg?v=20260517-18" alt="Default geometry source" />
+          </section>
+
+          <canvas id="geometryCanvas" width="900" height="900"></canvas>
+          <canvas id="luminanceCanvas" width="900" height="80"></canvas>
+          <div class="feature-grid">
+            <div>
+              <span>Density</span>
+              <strong id="densityValue">0.00</strong>
+            </div>
+            <div>
+              <span>Edge</span>
+              <strong id="edgeDensityValue">0.00</strong>
+            </div>
+            <div>
+              <span>Complex</span>
+              <strong id="complexityValue">0.00</strong>
+            </div>
+          </div>
+          <details class="step-block">
+            <summary>Step sequencer</summary>
+            <div id="stepGrid" class="layer-grid" aria-label="16 step sequencer"></div>
+          </details>
+        </section>
+      </section>
+    </main>
+
+    <!-- 葉：場と繋ぐための三本。読み込めない／繋がない時は下の fallback で単体動作 -->
+    <script src="shared/el-systema-shapes.js"></script>
+    <script src="shared/el-systema-transport.js"></script>
+    <script src="shared/el-systema-control.js"></script>
+    <script src="app.js?v=20260517-18"></script>
+  </body>
+</html>

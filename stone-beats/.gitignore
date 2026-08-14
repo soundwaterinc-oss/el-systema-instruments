@@ -1,0 +1,42 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Node
+node_modules/
+**/node_modules/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# hub の言上ログ（local、workspace ルート直下に書かれる）
+hub/logs/
+logs/
+
+# 既存の独立リポ（別々に管理）
+el-systema-bloom-geometry-generator/
+el-systema-bloom-particle-noise/
+mossreservoir/
+mycorrhiza-beat/
+kagome-sound/
+CellnoiseGenerator/
+planarian-drone/
+PLANARIAN-DRONE/
+
+# blocker D/E ─ 同一性未確定（REGISTRY.md 参照）
+el-systema-particle-noise-lab/
+public/
+src/
+
+# editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# logs
+*.log
+
+# Codex/Cline のスクリーンショット等、ローカルのみ
+tmp/

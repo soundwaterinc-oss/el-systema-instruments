@@ -1,0 +1,99 @@
+{
+  "album": "EL-SYSTEMA",
+  "track": "潮の起こりと石の還り ─ 序",
+  "duration": 180,
+  "綴び": "凪から雨嵐へ。海が育ち、石が呼応し、雷が磁石を共鳴させる。還りで石は順に沈み、海は凪に戻る。",
+  "楽器": ["ocean", "stone-beats"],
+
+  "祭次": [
+    { "時": 0,   "揺": 0,
+      "target": "ocean", "command": "loadPreset",
+      "preset": {
+        "master": 0.65, "root": 110, "scale": "ヒラジョシ",
+        "current": "黒潮", "currentDepth": 30,
+        "weather": "凪", "drift": 60, "rain": 0, "thunder": 0,
+        "ds":  { "on": true,  "level": 70, "octave": 0.5,  "swell": 1.0 },
+        "oki": { "on": true,  "level": 60, "octave": 1.0,  "swell": 1.0 },
+        "kg":  { "on": true,  "level": 55, "octave": 2.0,  "swell": 1.2 }
+      }
+    },
+    { "時": 1,   "揺": 0.3, "target": "ocean", "command": "play" },
+
+    { "時": 15,  "揺": 1, "target": "ocean", "command": "ramp",
+      "param": "currentDepth", "from": 30, "to": 70, "duration": 20 },
+
+    { "時": 20,  "揺": 0.5, "target": "stone-beats", "command": "loadPreset",
+      "preset": {
+        "master": 0.5, "endmix": 0, "edit_stone": "砂礫", "energy": 0.60, "vary": 0.30,
+        "voices": {
+          "玄武岩": {"on": false, "bpm":60, "rhythm":"4/4",      "size":60, "volume":75, "density":100, "plate":30, "spring":5,  "stereo":15, "ping":5  },
+          "花崗岩": {"on": false, "bpm":96, "rhythm":"3/4",      "size":40, "volume":70, "density":100, "plate":35, "spring":10, "stereo":20, "ping":5  },
+          "石灰岩": {"on": false, "bpm":72, "rhythm":"5/16",     "size":55, "volume":60, "density":80,  "plate":45, "spring":15, "stereo":10, "ping":5  },
+          "砂岩":   {"on": false, "bpm":84, "rhythm":"Tresillo", "size":35, "volume":65, "density":90,  "plate":20, "spring":5,  "stereo":30, "ping":10 },
+          "磁石":   {"on": false, "bpm":120,"rhythm":"Cinquillo","size":30, "volume":55, "density":70,  "plate":55, "spring":25, "stereo":35, "ping":10 },
+          "砂礫":   {"on": true,  "bpm":60, "rhythm":"1/f",      "size":60, "volume":50, "density":40,  "plate":30, "spring":15, "stereo":25, "ping":5  }
+        }
+      }
+    },
+    { "時": 22,  "揺": 0.3, "target": "stone-beats", "command": "play" },
+
+    { "時": 40,  "揺": 1, "target": "ocean", "command": "setParam",
+      "param": "weather", "value": "さざ波" },
+
+    { "時": 60,  "揺": 1.5, "target": "stone-beats", "command": "setParam",
+      "param": "voice.玄武岩.on", "value": 1 },
+
+    { "時": 75,  "揺": 1, "target": "ocean", "command": "ramp",
+      "param": "rain", "from": 0, "to": 30, "duration": 15 },
+
+    { "時": 90,  "揺": 1, "target": "ocean", "command": "setParam",
+      "param": "weather", "value": "荒波" },
+    { "時": 95,  "揺": 1, "target": "stone-beats", "command": "setParam",
+      "param": "voice.花崗岩.on", "value": 1 },
+
+    { "時": 100, "揺": 1, "target": "ocean", "command": "ramp",
+      "param": "thunder", "from": 0, "to": 60, "duration": 30 },
+
+    { "時": 130, "揺": 1, "target": "ocean", "command": "setParam",
+      "param": "weather", "value": "雨嵐" },
+    { "時": 140, "揺": 1, "target": "stone-beats", "command": "setParam",
+      "param": "voice.磁石.on", "value": 1 },
+
+    { "時": 160, "揺": 0.5, "target": "ocean", "command": "ramp",
+      "param": "thunder", "from": 60, "to": 0, "duration": 15 },
+    { "時": 160, "揺": 0.5, "target": "stone-beats", "command": "ramp",
+      "param": "master", "from": 0.5, "to": 0.0, "duration": 20 },
+
+    { "時": 170, "揺": 0.3, "target": "ocean", "command": "setParam",
+      "param": "weather", "value": "凪" },
+
+    { "時": 178, "揺": 0, "target": "stone-beats", "command": "stop" },
+    { "時": 178, "揺": 0, "target": "ocean", "command": "stop" }
+  ],
+
+  "応答": [
+    { "名": "海が満ちたら、玄武岩が応える",
+      "時": { "信号": "presence:ocean", "演算": ">", "値": 0.4, "持続": 4 },
+      "為": { "target": "stone-beats", "command": "setParam",
+              "param": "voice.玄武岩.density", "value": 100 },
+      "冷却": 30 },
+
+    { "名": "石が黙ったら、海は和らぐ",
+      "時": { "信号": "silence:stone-beats", "演算": ">", "値": 8 },
+      "為": { "target": "ocean", "command": "setParam",
+              "param": "weather", "value": "さざ波" },
+      "冷却": 60 },
+
+    { "名": "雷が鳴ると、磁石が共鳴",
+      "時": { "信号": "presence:ocean", "演算": ">", "値": 0.7, "持続": 2 },
+      "為": { "target": "stone-beats", "command": "setParam",
+              "param": "voice.磁石.ping", "value": 80 },
+      "冷却": 15 },
+
+    { "名": "雨が止んだら、石は沈黙へ",
+      "時": { "信号": "silence:ocean", "演算": ">", "値": 5 },
+      "為": { "target": "stone-beats", "command": "ramp",
+              "param": "master", "from": 0.5, "to": 0.15, "duration": 10 },
+      "一度": true }
+  ]
+}

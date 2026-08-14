@@ -1,0 +1,46 @@
+{
+  "album": "EL-SYSTEMA",
+  "track": "苔薄・格子・残響体 / 序",
+  "duration": 300,
+  "綴び": "東より、根が芽を見ます。格子は満ちる。声を返してください、ひとつだけ。",
+  "楽器": ["geometry-scanner", "particle-noise"],
+
+  "祭次": [
+    { "時": 0,  "揺": 0, "target": "geometry-scanner", "command": "loadPreset",
+      "preset": { "selectedScale": "1/f Harmonic", "selectedRootNote": "C",
+                  "selectedRhythm": "Kecak Cycle", "selectedFunction": "Orbit",
+                  "selectedVisual": "Cell Vector", "selectedScanPath": "Spiral",
+                  "selectedVoices": { "bass": "Bronze Cluster", "drone": "Pipe Organ", "percussion": "Bamboo Thump" },
+                  "droneLevel": 0.04, "masterDrive": 0.18, "bpm": 96 } },
+
+    { "時": 2,  "揺": 0.4, "target": "geometry-scanner", "command": "play" },
+
+    { "時": 3,  "揺": 2,   "target": "geometry-scanner", "command": "ramp",
+      "param": "droneLevel", "from": 0.04, "to": 0.78, "duration": 28 },
+
+    { "時": 24, "揺": 1.5, "target": "geometry-scanner", "command": "ramp",
+      "param": "masterDrive", "from": 0.18, "to": 0.42, "duration": 18 },
+
+    { "時": 60, "揺": 1,   "target": "particle-noise", "command": "loadPreset",
+      "preset": { "masterGain": 0.6, "density": 0.32, "rate": 4.5, "brightness": 0.55, "scatter": 0.42 } }
+  ],
+
+  "応答": [
+    { "名": "格子が満ちたら、物質を呼ぶ",
+      "時": { "信号": "presence:geometry-scanner", "演算": ">", "値": 0.45, "持続": 5 },
+      "為": { "target": "particle-noise", "command": "play" },
+      "一度": true },
+
+    { "名": "格子が沈黙したら、ドローンを戻す（ハツイガコ）",
+      "時": { "信号": "silence:geometry-scanner", "演算": ">", "値": 6 },
+      "為": { "target": "geometry-scanner", "command": "ramp",
+              "param": "droneLevel", "from": 0.2, "to": 0.55, "duration": 20 },
+      "冷却": 60 },
+
+    { "名": "場が濁れば、ParticleNoise を引く",
+      "時": { "信号": "density", "演算": ">", "値": 0.6, "持続": 4 },
+      "為": { "target": "particle-noise", "command": "setParam",
+              "param": "masterGain", "value": 0.32 },
+      "冷却": 30 }
+  ]
+}

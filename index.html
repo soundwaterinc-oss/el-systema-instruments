@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EL-SYSTEMA — Instruments</title>
+<link rel="icon" href="data:," />
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;background:#04080a;color:#cfe8d0;
+    font:14px/1.7 ui-sans-serif,system-ui,"Hiragino Kaku Gothic ProN",sans-serif;letter-spacing:.02em}
+  header{padding:44px 26px 12px;max-width:960px;margin:0 auto}
+  h1{color:#d0ff5a;letter-spacing:.24em;font-size:22px;margin:0 0 10px;font-weight:700}
+  .lead{color:#7fae90;max-width:64ch}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;
+    padding:22px 26px 52px;max-width:960px;margin:0 auto}
+  a.card{display:block;text-decoration:none;color:inherit;background:#0a1418;
+    border:1px solid #16302b;border-radius:7px;padding:16px 17px 18px;transition:.15s}
+  a.card:hover{border-color:#d0ff5a;transform:translateY(-2px);background:#0c191d}
+  .n{color:#4f7f66;font-size:11px;letter-spacing:.2em}
+  .t{color:#9fe8c0;font-size:16px;margin:3px 0 7px;letter-spacing:.06em;font-weight:600}
+  .d{color:#8fbfa4;font-size:13px}
+  footer{color:#3f6a52;max-width:64ch;margin:0 auto;padding:0 26px 40px;font-size:13px}
+  code{color:#7fe8ff}
+</style>
+</head>
+<body>
+<header>
+  <h1>EL·SYSTEMA</h1>
+  <p class="lead">平均律・和声・BPMといった既存の音楽的約束を排し、自然界・物理界の幾何と関数だけを音の素材にする、ブラウザ上の楽器群。各作品はヘッドホン推奨・クリックで音が始まります。</p>
+</header>
+<div class="grid" id="grid"></div>
+<footer>16 の楽器は 1 枚の統合演奏卓（Launch Control XL 3）から同時に演奏・ミキシングでき、演奏中の混在状態は黄金角スパイラル（フィロタキシス）の場として可視化される。<br>© soundwater inc.</footer>
+<script>
+const items = [
+ ['hado-field','HADŌ／波動庭','量子場のゆらぎと植物の幾何が呼応する、ブラウザ上の「庭」＝場そのものを奏でる楽器。'],
+ ['hado-beat','HADŌ BEAT／波動拍','テンポを持たず、量子場の運動そのものが刻む波動由来のビート機。'],
+ ['hado-dust','HADŌ DUST／波動塵','微粒子の散乱運動だけで構成した、粒立ちのビート楽器。'],
+ ['hado-ori','HADŌ ORI／波動織','波動からコード・リフ・ソロを織り、世界各地の音階と民族文様の映像を同時生成する。'],
+ ['hado-hen','HADŌ HEN／波動変','加算拍子×ポリメーターの変拍子を、硬質なドットビートで打つ波動リズム機。'],
+ ['tsuki-sound','TSUKI／月','植物細胞の組織と月の潮汐律動を重ねた、呼吸する細胞楽器。'],
+ ['mycorrhiza-beat','MYCORRHIZA::BEAT','菌根ネットワーク（AMF）の顕微画像を解析し、その連結構造からビートを生成する。'],
+ ['cellnoise','CellNoise Generator','植物の顕微画像をスキャンし、細胞幾何を音と映像の「場」へ双方向変換するジェネレータ。'],
+ ['geo-generator','Cell Noise Geometry Lab','細胞状の幾何パターンを生成し、その分布を音源配置へ写像する実験卓。'],
+ ['particle-noise','Particle Noise Lab','粒子ノイズの統計的ゆらぎを、音のテクスチャへ翻訳する実験楽器。'],
+ ['geo-osc','EL-SYSTEMA Master','平均律を排し固有振動と自然関数だけで鳴る幾何/物理エンジンを8台束ねた統合演奏プラットフォーム。'],
+ ['kagome','Poly Engine／籠目','籠目（かごめ）格子の対称性を、音律とポリリズムへ翻訳するポリフォニック・エンジン。'],
+ ['moss-reservoir','Moss Reservoir／苔の貯水','苔の貯水と乾湿のダイナミクスを、ゆっくり滲むドローンとして可聴化する。'],
+ ['planarian-drone','PLANARIAN DRONE','プラナリアの再生と自己同一性をモチーフに、多発振の統合として立ち上がるドローン。'],
+ ['ocean','ocean／海','波と潮汐の運動を直接波形・包絡へ写した、テンポなしの海のドローン。'],
+ ['stone-beats','stone-beats／石の鼓','石の質量と衝突の物理から立ち上がる、原始的な打の連なり。'],
+];
+const g = document.getElementById('grid');
+items.forEach(([id,name,desc],i)=>{
+  const a=document.createElement('a'); a.className='card'; a.href='./'+id+'/';
+  a.innerHTML=`<div class="n">${String(i+1).padStart(2,'0')}</div><div class="t">${name}</div><div class="d">${desc}</div>`;
+  g.appendChild(a);
+});
+</script>
+</body>
+</html>

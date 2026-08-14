@@ -1,0 +1,9 @@
+{
+  "name": "el-systema-acid-instruments",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "SITES_DEFAULT_DOCUMENT=stone-beats.html node sites-build.mjs"
+  }
+}

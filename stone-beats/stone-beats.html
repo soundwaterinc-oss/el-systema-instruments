@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>stone-beats — 石の鼓</title>
+<link rel="icon" href="data:,">
+<style>
+:root{
+  --void:#070708; --ink:#0d0e10;
+  --line:rgba(214,210,196,.16); --line-2:rgba(214,210,196,.30);
+  --text:#cfccc0; --dim:#6b6a62;
+  --pulse:#c8b78a; --strike:#b08a6a;
+  --mono:"SFMono-Regular",ui-monospace,"DejaVu Sans Mono",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--void);color:var(--text);
+  font:13px/1.6 var(--mono);letter-spacing:.04em;
+  -webkit-font-smoothing:antialiased;overflow:hidden}
+.frame{height:100vh;display:flex;flex-direction:column}
+.bar{display:flex;align-items:baseline;gap:1.4rem;
+  padding:14px 22px;border-bottom:1px solid var(--line)}
+.bar .mark{letter-spacing:.42em;font-size:12px}
+.bar .sub{color:var(--dim);font-size:11px;letter-spacing:.14em}
+.bar .clock{margin-left:auto;color:var(--pulse);letter-spacing:.22em}
+
+.stage{flex:1;display:flex;min-height:0}
+.left{flex:1;position:relative;border-right:1px solid var(--line)}
+#scope{position:absolute;inset:0;width:100%;height:100%;display:block}
+.transport{position:absolute;left:22px;bottom:20px;display:flex;gap:10px}
+.t{background:transparent;color:var(--text);border:1px solid var(--line-2);
+  padding:9px 18px;font:12px/1 var(--mono);letter-spacing:.28em;cursor:pointer;
+  transition:border-color .25s,color .25s}
+.t:hover{border-color:var(--pulse);color:var(--pulse)}
+.t.ghost{color:var(--dim);border-color:var(--line)}
+.t.live{border-color:var(--pulse);color:var(--pulse)}
+.physh{position:absolute;left:22px;top:18px;color:var(--dim);
+  font-size:10.5px;line-height:1.85;letter-spacing:.06em;pointer-events:none}
+.physh b{color:var(--text);font-weight:400}
+
+.right{width:38%;min-width:360px;max-width:480px;
+  display:flex;flex-direction:column;overflow-y:auto}
+.panel{border-bottom:1px solid var(--line)}
+.ph{padding:11px 18px;color:var(--dim);font-size:10px;letter-spacing:.24em;
+  border-bottom:1px solid var(--line)}
+.body{padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+
+.row{display:flex;align-items:center;gap:12px}
+.k{color:var(--dim);font-size:11px;letter-spacing:.10em;min-width:54px}
+.val{color:var(--text);font-size:10.5px;min-width:48px;text-align:right;font-variant-numeric:tabular-nums}
+select,input[type=range]{background:var(--ink);color:var(--text);
+  border:1px solid var(--line);font:11px var(--mono);outline:0}
+select{padding:6px 10px;letter-spacing:.06em;min-width:160px}
+input[type=range]{-webkit-appearance:none;height:2px;background:var(--line-2);
+  flex:1;min-width:90px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:9px;
+  height:9px;background:var(--pulse);cursor:pointer;border-radius:0}
+
+::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:var(--line)}
+
+.voice .ph{display:flex;align-items:center;gap:10px;padding:9px 18px}
+.voice .body{padding:9px 16px;gap:7px}
+.voice .row{gap:8px}
+.voice .k{min-width:42px;font-size:10.5px}
+.voice .val{font-size:10px;min-width:38px}
+.voice select{min-width:130px;font-size:10.5px;padding:5px 8px}
+.voice label.von{display:flex;align-items:center;gap:6px;cursor:pointer;letter-spacing:.18em;font-size:11px;color:var(--text)}
+.voice label.von input{accent-color:var(--pulse);transform:translateY(1px)}
+.voice.off .body{opacity:.45}
+</style>
+</head>
+<body>
+<div class="frame">
+  <header class="bar">
+    <span class="mark">STONE-BEATS</span>
+    <span class="sub">石の鼓 ─ 一打ずつ良く鳴る</span>
+    <span class="clock" id="clock">--:--</span>
+  </header>
+
+  <main class="stage">
+    <section class="left">
+      <div class="physh" id="physh">物理は隠れない</div>
+      <canvas id="scope"></canvas>
+      <div class="transport">
+        <button id="run"  class="t">打 ち 始 め</button>
+        <button id="halt" class="t ghost">鎮 め</button>
+      </div>
+    </section>
+
+    <aside class="right">
+      <div class="panel">
+        <div class="ph">場 ─ マ ス タ ー 段</div>
+        <div class="body">
+          <div class="row">
+            <span class="k">出力</span>
+            <input type="range" id="master" min="0" max="100" value="70">
+            <span class="val" id="masterV">70</span>
+          </div>
+          <div class="row">
+            <span class="k">混交</span>
+            <input type="range" id="endmix" min="0" max="100" value="0">
+            <span class="val" id="endmixV">0</span>
+          </div>
+          <div class="row">
+            <span class="k">表現</span>
+            <input type="range" id="energy" min="10" max="100" value="72">
+            <span class="val" id="energyV">72</span>
+          </div>
+          <div class="row">
+            <span class="k">揺らぎ</span>
+            <input type="range" id="vary" min="0" max="100" value="22">
+            <span class="val" id="varyV">22</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="voicePanels"></div>
+
+      <div id="fxPanels"></div>
+
+      <div class="panel">
+        <div class="ph">Fling ─ 物 理 関 数 で 短 句 を 飛 ば す</div>
+        <div class="body">
+          <div class="row">
+            <span class="k">関数</span>
+            <select id="flingFunc"></select>
+          </div>
+          <div class="row">
+            <span class="k">強度</span>
+            <input type="range" id="flingI" min="0" max="100" value="60">
+            <span class="val" id="flingIV">60</span>
+          </div>
+          <div class="row">
+            <span class="k">頻度</span>
+            <input type="range" id="flingR" min="0" max="100" value="30">
+            <span class="val" id="flingRV">30</span>
+          </div>
+          <div class="row">
+            <span class="k">窓 ms</span>
+            <input type="range" id="flingD" min="40" max="2000" value="280">
+            <span class="val" id="flingDV">280</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">編 集 ─ 音 色 を 弄 る 石</div>
+        <div class="body">
+          <div class="row">
+            <span class="k">編集石</span>
+            <select id="stoneSel"></select>
+          </div>
+        </div>
+      </div>
+
+      <div id="paramPanels"></div>
+
+      <div class="panel">
+        <div class="ph">プ リ セ ッ ト 書 き 出 し</div>
+        <div class="body">
+          <button id="exportBtn" class="t" style="align-self:flex-start">現 値 を コ ピ ー</button>
+          <textarea id="exportOut" readonly placeholder="現値の JSON ─ ボタンで自動コピー"
+                    style="width:100%;min-height:160px;background:var(--ink);color:var(--text);
+                           border:1px solid var(--line);font:10.5px var(--mono);padding:8px;
+                           letter-spacing:.03em;resize:vertical;outline:0"></textarea>
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<!-- 葉：場と繋ぐための三本。読み込めない／繋がない時は下の fallback で単体動作 -->
+<script src="shared/el-systema-shapes.js"></script>
+<script src="shared/el-systema-transport.js"></script>
+<script src="shared/el-systema-control.js"></script>
+
+<script>
+(function(){
+"use strict";
+var FIELD_ON = /[?&#]field/.test(location.href);
+
+// 場と繋がない単体動作のための fallback
+if (typeof window.registerElSystemaInstrument !== "function") {
+  window.registerElSystemaInstrument = function(){};
+}
+
+/* ── 物理 ──────────────────────────────────────────────
+   shape : 形状（帯域の偏り）
+   stiff : 剛性（高域に効く・f₀ も上げる）
+   damp  : 内部減衰（全体を抑える）
+   noise : 接触ノイズの量
+   grain : 砕粒（砂尾の量・長さ）                       */
+var STONES = {
+  // knockBands は石ごとの個性 ─ 三つの帯域中心 [低中, 中, 中高]。null は発動せず
+  // preset は音色設計スライダの保存値（設計UIで「現値をコピー」した結果）
+  "玄武岩": {shape:"bar",    stiff:0.62, damp:0.34, noise:0.30, grain:0.40, knockBands:[ 600, 1500, 2800],
+    preset:{"a_mix":181,"a_freq":172,"a_dec":117,"h_mix":53,"h_freq":300,"h_dec":56,"h_sq":100,"b_mix":135,"b_6k":200,"b_3k":200,"b_1k":200,"b_550":199,"b_180":200,"f_mix":59,"f_count":300,"f_dec":424,"i_mix":197,"i_freq":34,"i_dec":500,"c_mix":199,"c_freq":80,"c_dec":500,"d_mix":74,"d_dur":218,"e_mix":76,"e_count":256,"e_spread":172,"j_mix":7,"j_count":1,"k_mix":106,"k_count":2}},
+  "花崗岩": {shape:"bar",    stiff:0.95, damp:0.18, noise:0.22, grain:0.30, knockBands:[ 800, 2200, 4200],
+    preset:{"a_mix":181,"a_freq":172,"a_dec":117,"h_mix":53,"h_freq":300,"h_dec":56,"h_sq":100,"b_mix":135,"b_6k":200,"b_3k":200,"b_1k":200,"b_550":199,"b_180":200,"f_mix":59,"f_count":300,"f_dec":424,"i_mix":197,"i_freq":34,"i_dec":500,"c_mix":199,"c_freq":80,"c_dec":500,"d_mix":74,"d_dur":218,"e_mix":76,"e_count":256,"e_spread":172,"j_mix":7,"j_count":1,"k_mix":106,"k_count":2}},
+  "石灰岩": {shape:"plate",  stiff:0.40, damp:0.62, noise:0.55, grain:0.55, knockBands:[ 400, 1100, 2200],
+    preset:{"a_mix":181,"a_freq":172,"a_dec":117,"h_mix":53,"h_freq":300,"h_dec":56,"h_sq":100,"b_mix":135,"b_6k":200,"b_3k":200,"b_1k":200,"b_550":199,"b_180":200,"f_mix":59,"f_count":300,"f_dec":424,"i_mix":197,"i_freq":34,"i_dec":500,"c_mix":199,"c_freq":80,"c_dec":500,"d_mix":74,"d_dur":218,"e_mix":76,"e_count":256,"e_spread":172,"j_mix":7,"j_count":1,"k_mix":106,"k_count":2}},
+  "砂岩":   {shape:"irreg",  stiff:0.26, damp:0.82, noise:0.78, grain:0.85, knockBands:null,
+    preset:{"a_mix":181,"a_freq":172,"a_dec":117,"h_mix":53,"h_freq":300,"h_dec":56,"h_sq":100,"b_mix":135,"b_6k":200,"b_3k":200,"b_1k":200,"b_550":199,"b_180":200,"f_mix":59,"f_count":300,"f_dec":424,"i_mix":197,"i_freq":34,"i_dec":500,"c_mix":37,"c_freq":80,"c_dec":500,"d_mix":74,"d_dur":218,"e_mix":76,"e_count":256,"e_spread":172,"j_mix":7,"j_count":1,"k_mix":106,"k_count":2}},
+  "磁石":   {shape:"sphere", stiff:1.00, damp:0.12, noise:0.18, grain:0.20, knockBands:[1100, 2800, 5200],
+    preset:{"a_mix":200,"a_freq":200,"a_dec":300,"h_mix":200,"h_freq":300,"h_dec":82,"h_sq":100,"b_mix":0,"b_6k":200,"b_3k":200,"b_1k":200,"b_550":199,"b_180":200,"f_mix":181,"f_count":110,"f_dec":424,"i_mix":199,"i_freq":103,"i_dec":500,"c_mix":200,"c_freq":141,"c_dec":500,"d_mix":116,"d_dur":218,"e_mix":200,"e_count":256,"e_spread":172,"j_mix":200,"j_count":8,"k_mix":7,"k_count":0}},
+  "砂礫":   {shape:"irreg",  stiff:0.50, damp:0.55, noise:0.90, grain:1.00, knockBands:null,
+    preset:{"a_mix":17,"a_freq":200,"a_dec":300,"h_mix":13,"h_freq":300,"h_dec":82,"h_sq":100,"b_mix":181,"b_6k":200,"b_3k":200,"b_1k":200,"b_550":199,"b_180":200,"f_mix":5,"f_count":110,"f_dec":424,"i_mix":0,"i_freq":34,"i_dec":41,"c_mix":31,"c_freq":141,"c_dec":500,"d_mix":74,"d_dur":218,"e_mix":41,"e_count":256,"e_spread":172,"j_mix":7,"j_count":1,"k_mix":106,"k_count":2}},
+};
+
+// 形状ごとの帯域偏り（高→低の 5 帯）。1.0 が中立。
+var SHAPE_BAND_BIAS = {
+  bar:    [0.85, 1.10, 1.15, 0.95, 0.80],  // 木琴感を捨て、上中域を持ち上げ気味
+  plate:  [0.75, 1.00, 1.20, 1.10, 0.85],  // 中域に山
+  sphere: [1.20, 1.20, 1.00, 0.85, 0.75],  // 高めに山（明るい鐘）
+  irreg:  [0.65, 0.85, 1.05, 1.20, 1.10],  // 中低域寄り（密集）
+};
+
+/* ── 帯域ノイズの先取り ─────────────────────────────────
+   OfflineAudioContext で帯域パス済みノイズを焼く。
+   リアルタイムでは BufferSource として鳴らすだけ ─ フィルタ無し。
+   高→低の 5 帯。それぞれ短い「ドラム一打」相当の長さ。              */
+var BAND_CONFIG = [
+  { f: 6500, q: 5.5, dur: 0.022 },  // 0: 極高 ─ 砕けの先端
+  { f: 3000, q: 4.5, dur: 0.040 },  // 1: 高  ─ 殻が割れる
+  { f: 1300, q: 4.0, dur: 0.065 },  // 2: 中  ─ 肉の鳴き
+  { f: 550,  q: 3.5, dur: 0.105 },  // 3: 中低 ─ 芯の振動
+  { f: 180,  q: 3.5, dur: 0.150 },  // 4: 低  ─ 体の重さ
+];
+var BAND_BUFFERS = null;
+
+async function precomputeBands(){
+  if(typeof OfflineAudioContext !== "function" && typeof webkitOfflineAudioContext !== "function"){
+    console.warn("OfflineAudioContext 無し、帯域ノイズはスキップ");
+    BAND_BUFFERS = [];
+    return;
+  }
+  var OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  var rate = 48000;
+  var out = [];
+  for(var i=0; i<BAND_CONFIG.length; i++){
+    var cfg = BAND_CONFIG[i];
+    var len = Math.ceil(rate * cfg.dur);
+    var oac = new OAC(1, len, rate);
+    var nbuf = oac.createBuffer(1, len, rate);
+    var nd = nbuf.getChannelData(0);
+    for(var j=0; j<len; j++) nd[j] = Math.random()*2-1;
+    var src = oac.createBufferSource(); src.buffer = nbuf;
+    var bp = oac.createBiquadFilter(); bp.type = "bandpass";
+    bp.frequency.value = cfg.f; bp.Q.value = cfg.q;
+    src.connect(bp); bp.connect(oac.destination);
+    src.start(0);
+    out.push(await oac.startRendering());
+  }
+  BAND_BUFFERS = out;
+}
+precomputeBands().catch(function(e){
+  console.warn("帯域焼き失敗:", e);
+  BAND_BUFFERS = [];
+});
+
+// 石ごとの帯域の混ぜ方
+function stoneBandMix(st){
+  var sw = st.stiff;
+  var dw = st.damp;
+  var bias = SHAPE_BAND_BIAS[st.shape] || SHAPE_BAND_BIAS.bar;
+  var base = [
+    0.30 + sw * 0.75,                       // 6.5k: 硬い石ほど派手に
+    0.50 + sw * 0.55,                       // 3k:  硬い石ほど
+    0.80 - Math.abs(sw - 0.55) * 0.4,       // 1.3k: 中硬度で山
+    0.60 + (1 - sw) * 0.35,                 // 550:  柔らかいほど
+    0.45 + (1 - sw) * 0.30,                 // 180:  柔らかいほど
+  ];
+  return base.map(function(v, i){ return v * bias[i] * (1 - dw * 0.30); });
+}
+
+/* ── 状態 ───────────────────────────────────────────── */
+var ac=null, master=null, ann=null, abuf=null;
+var running=false, schedTimer=null, nextHitAt=0, t0=0;
+var P = {
+  // === 場（マスター段）=========================================
+  master: 0.70,
+  endmix: 0,           // 混交：0=演奏 100=収束（声ごとに順に消える）
+
+  // 編集対象（音色設計スライダがこの石の preset を弄る）
+  edit_stone: "玄武岩",
+
+  // 表現マクロ（全声共通）
+  energy: 0.72, vary: 0.22,
+
+  // === 並列声（各石が独立に走る、四つの送り）====================
+  voices: {
+    "玄武岩": {on:true,  bpm:60, rhythm:"4/4",        size:60, volume:75, density:100, plate:30, spring:5,  stereo:15, ping:5 },
+    "花崗岩": {on:false, bpm:96, rhythm:"3/4",        size:40, volume:70, density:100, plate:35, spring:10, stereo:20, ping:5 },
+    "石灰岩": {on:false, bpm:72, rhythm:"5/16",       size:55, volume:60, density:80,  plate:45, spring:15, stereo:10, ping:5 },
+    "砂岩":   {on:false, bpm:84, rhythm:"Tresillo",   size:35, volume:65, density:90,  plate:20, spring:5,  stereo:30, ping:10},
+    "磁石":   {on:false, bpm:120,rhythm:"Cinquillo",  size:30, volume:55, density:70,  plate:55, spring:25, stereo:35, ping:10},
+    "砂礫":   {on:false, bpm:60, rhythm:"1/f",        size:60, volume:65, density:60,  plate:30, spring:15, stereo:25, ping:5 },
+  },
+
+  // === 効果バス ================================================
+  fx: {
+    plate:  {decay:55, size:50, mix:60},  // decay/size 0-100、mix 0-100
+    spring: {decay:42, size:60, mix:50},
+    stereo: {time:380, feedback:42, mix:65},  // time ms、feedback 0-95
+    ping:   {time:375, feedback:48, mix:65},
+  },
+
+  // === Fling（物理関数で局所的に pingpong へ短い句を飛ばす）======
+  fling: {func:"1/f", intensity:60, rate:30, duration:280},
+
+  // === 音色設計（edit_stone に対するライブ編集）================
+  a_mix:100, a_freq:100, a_dec:100,
+  h_mix:100, h_freq:100, h_dec:100, h_sq:35,
+  b_mix:100, b_6k:120, b_3k:110, b_1k:40, b_550:30, b_180:25,
+  f_mix:100, f_count:100, f_dec:100,
+  i_mix:100, i_freq:100, i_dec:100,
+  c_mix:100, c_freq:100, c_dec:100,
+  d_mix:100, d_dur:100,
+  e_mix:100, e_count:100, e_spread:80,
+  j_mix:100, j_count:3,
+  k_mix:100, k_count:1,
+};
+
+/* ── 一打（金物 + HF グリッチ + サブ点 + 砂トレース）──
+   方針: 「kick+snare 化」していた胴鳴り・残響を排し、頭の金物・
+   高域グリッチを前面に。低域は短い質量点でだけ存在し、砂は微量。
+     A) Hertzian クリック : 頭の硬い「カチ」、より高域へ
+     H) 金物パーシャル     : カウベル様の不協和 5 比、square+triangle ブレンド
+     B) 帯域ノイズ         : 6.5k/3k を増強、1.3k/550 を半減〜大幅減、180 はトレース
+     F) 無機ノック         : 1〜4ms の極短、growl 廃止、矩形寄り（Ikeda 様）
+     I) サブ点             : ピッチドロップ廃止、50ms 固定の質量点
+     C) 質量点             : 唸り廃止、30〜80ms の単一サインに圧縮
+     D) 砂尾               : 振幅 0.4 倍、全石共通の微量
+     E) HF グリッチ        : 差分でハイパスした極短ノイズの散発
+     J) HF サインクリック  : 4k/8k/12k のサインを矩形包絡で 2〜4 発
+     K) HF 狭帯域ノイズ    : 二段差分のハイパスノイズ 1〜2 発で先端を硬く        */
+function strike(when, opts){
+  opts = opts || {};
+  var stoneKey = opts.stone || P.edit_stone || "玄武岩";
+  var st = STONES[stoneKey] || STONES["玄武岩"];
+  // 音色は preset から（声が別石を打った時）／編集対象の石なら現在の P でライブ編集を反映
+  var sp = (opts.stone && opts.stone !== P.edit_stone && st.preset) ? st.preset : P;
+
+  // 大きさは声から（無ければ既定 50 = 0.5）。size は 0.02〜2.0（低域オーバーシュート可）
+  var sMul = opts.size_mul || 1;
+  var eMul = opts.energy_mul || 1;
+  var sBase = ((opts.size != null ? opts.size : 50) / 100) * sMul;
+  var sJit  = (Math.random()*2-1) * P.vary * 0.30 * sBase;
+  var size  = Math.max(0.02, Math.min(2.0, sBase + sJit));
+
+  var eBase = P.energy * eMul;
+  var eJit  = (Math.random()*2-1) * P.vary * 0.40 * eBase;
+  var energy = Math.max(0.10, Math.min(1.0, eBase + eJit));
+
+  // 集音バス → 該当声の入力（無ければマスター直結）
+  var sum = ac.createGain(); sum.gain.value = energy * 0.55;
+  var pan = ac.createStereoPanner();
+  pan.pan.value = (Math.random()*2-1) * 0.35;
+  sum.connect(pan);
+  pan.connect((VOICE_NODES[stoneKey] && VOICE_NODES[stoneKey].input) || master);
+
+  // ─ A) Hertzian クリック ───────────────────────────
+  if(sp.a_mix > 0){
+    var clickF   = (3500 + st.stiff * 4500 + (Math.random()*2-1)*400) * (sp.a_freq/100);
+    var clickAmp = (0.32 + st.stiff*0.32) * energy * (sp.a_mix/100);
+    var clickDec = (0.002 + st.stiff * 0.004) * (sp.a_dec/100);
+    var co = ac.createOscillator(); co.type = "triangle";
+    co.frequency.value = clickF;
+    var cg = ac.createGain();
+    cg.gain.setValueAtTime(0.0001, when);
+    cg.gain.linearRampToValueAtTime(clickAmp, when + 0.0002);
+    cg.gain.exponentialRampToValueAtTime(0.0001, when + 0.0002 + clickDec);
+    co.connect(cg); cg.connect(sum);
+    co.start(when); co.stop(when + clickDec + 0.02);
+  }
+
+  // ─ H) 金物パーシャル（カウベル様）──────────────────
+  if(st.knockBands && st.stiff > 0.30 && sp.h_mix > 0){
+    var cowRatios = [1.00, 1.485, 2.02, 2.94, 3.51];
+    var cowBase   = (540 + st.stiff * 820) * (sp.h_freq/100);
+    var cowAmpBase = energy * (0.22 + st.stiff * 0.18) * (sp.h_mix/100);
+    var hSq = Math.max(0, Math.min(1, sp.h_sq/100));
+    for(var cpi=0; cpi<cowRatios.length; cpi++){
+      var cF = cowBase * cowRatios[cpi] * (1 + (Math.random()-0.5) * 0.030);
+      if(cF > ac.sampleRate * 0.45) continue;
+      var cA = (1.0 / (1 + cpi * 0.55)) * cowAmpBase;
+      var cD = (0.025 + Math.random() * 0.085) * (sp.h_dec/100);
+      if(cpi > 2) cD *= 0.50;
+      var cMix = ac.createGain();
+      cMix.gain.setValueAtTime(0.0001, when);
+      cMix.gain.linearRampToValueAtTime(cA, when + 0.0002);
+      cMix.gain.exponentialRampToValueAtTime(0.0001, when + 0.0002 + cD);
+      var coSq = ac.createOscillator(); coSq.type = "square";
+      coSq.frequency.value = cF;
+      var coTr = ac.createOscillator(); coTr.type = "triangle";
+      coTr.frequency.value = cF * 1.005;
+      var gSq = ac.createGain(); gSq.gain.value = hSq;
+      var gTr = ac.createGain(); gTr.gain.value = 1 - hSq;
+      coSq.connect(gSq); gSq.connect(cMix);
+      coTr.connect(gTr); gTr.connect(cMix);
+      cMix.connect(sum);
+      coSq.start(when); coSq.stop(when + cD + 0.02);
+      coTr.start(when); coTr.stop(when + cD + 0.02);
+    }
+  }
+
+  // ─ B) 帯域ノイズ ────────────────────────────────
+  if(BAND_BUFFERS && BAND_BUFFERS.length && sp.b_mix > 0){
+    var bmix   = stoneBandMix(st);
+    var sBoost = [sp.b_6k/100, sp.b_3k/100, sp.b_1k/100, sp.b_550/100, sp.b_180/100];
+    for(var bi=0; bi<BAND_BUFFERS.length; bi++){
+      var bbuf = BAND_BUFFERS[bi];
+      var amp  = bmix[bi] * sBoost[bi] * energy * 0.35 * (sp.b_mix/100);
+      var d    = BAND_CONFIG[bi].dur * 0.70;
+      var bs   = ac.createBufferSource(); bs.buffer = bbuf;
+      var bg   = ac.createGain();
+      bg.gain.setValueAtTime(0.0001, when);
+      bg.gain.linearRampToValueAtTime(Math.max(0.0002, amp), when + 0.0003);
+      bg.gain.exponentialRampToValueAtTime(0.0001, when + 0.0003 + d);
+      bs.connect(bg); bg.connect(sum);
+      bs.start(when); bs.stop(when + d + 0.02);
+    }
+  }
+
+  // ─ F) 無機ノック ───────────────────────────────
+  if(st.knockBands && sp.f_mix > 0){
+    var bandWeights = [0.80, 0.95, 1.10];
+    for(var fbi=0; fbi<st.knockBands.length; fbi++){
+      var bandF       = st.knockBands[fbi];
+      var nKnocks     = Math.max(0, Math.round((4 + Math.random() * 4) * (sp.f_count/100)));
+      var bandStart   = when + fbi * 0.0007 + Math.random() * 0.0020;
+      var bandAmpBase = energy * (0.16 + st.stiff * 0.14) * bandWeights[fbi] * (sp.f_mix/100);
+      for(var kki=0; kki<nKnocks; kki++){
+        var oct  = (Math.random() - 0.5) * 1.0;
+        var kF   = bandF * Math.pow(2, oct * 0.5);
+        var kT   = bandStart + Math.random() * 0.004;
+        var kDec = (0.001 + Math.random() * 0.003) * (sp.f_dec/100);
+        var kAmp = bandAmpBase * (0.45 + Math.random() * 0.55);
+        var ko = ac.createOscillator();
+        ko.type = (fbi <= 1) ? "square" : "sawtooth";
+        ko.frequency.value = kF;
+        var kg = ac.createGain();
+        kg.gain.setValueAtTime(0.0001, kT);
+        kg.gain.linearRampToValueAtTime(kAmp, kT + 0.0002);
+        kg.gain.exponentialRampToValueAtTime(0.0001, kT + 0.0002 + kDec);
+        ko.connect(kg); kg.connect(sum);
+        ko.start(kT); ko.stop(kT + kDec + 0.005);
+      }
+    }
+  }
+
+  // ─ I) サブ点 ────────────────────────────────────
+  if(st.knockBands && size > 0.20 && sp.i_mix > 0){
+    var subF   = (55 + (1 - size) * 30) * (sp.i_freq/100);
+    var subAmp = Math.min(1.5, (size - 0.20) * 0.95) * energy * (1.0 - st.damp*0.25) * (sp.i_mix/100);
+    var subDec = Math.max(0.005, 0.050 * (sp.i_dec/100));
+    var subO = ac.createOscillator(); subO.type = "sine";
+    subO.frequency.value = subF;
+    var subG = ac.createGain();
+    subG.gain.setValueAtTime(0.0001, when);
+    subG.gain.linearRampToValueAtTime(subAmp, when + 0.001);
+    subG.gain.exponentialRampToValueAtTime(0.0001, when + 0.001 + subDec);
+    subO.connect(subG); subG.connect(sum);
+    subO.start(when); subO.stop(when + subDec + 0.02);
+  }
+
+  // ─ C) 質量点 ────────────────────────────────────
+  if(size > 0.10 && sp.c_mix > 0){
+    var bodyF   = (40 + (1 - size) * 80) * (sp.c_freq/100);
+    var bodyDec = Math.max(0.005, (0.030 + size * 0.050) * (sp.c_dec/100));
+    var bodyAmp = Math.min(1.2, (size - 0.10) * 0.70) * energy * (1.0 - st.damp*0.3) * (sp.c_mix/100);
+    var bo = ac.createOscillator(); bo.type = "sine";
+    bo.frequency.value = bodyF;
+    var bgB = ac.createGain();
+    bgB.gain.setValueAtTime(0.0001, when);
+    bgB.gain.linearRampToValueAtTime(bodyAmp, when + 0.001);
+    bgB.gain.exponentialRampToValueAtTime(0.0001, when + 0.001 + bodyDec);
+    bo.connect(bgB); bgB.connect(sum);
+    bo.start(when); bo.stop(when + bodyDec + 0.02);
+  }
+
+  // ─ G) 低域反響 → 削除（胴の残響を断つ）─────────────
+
+  // ─ D) 砂尾 ──────────────────────────────────────
+  if(sp.d_mix > 0){
+    var sandDur = Math.max(0.005, (0.04 + size * 0.20 + st.grain * st.grain * 0.80) * (sp.d_dur/100));
+    var sandAmp = (0.04 + st.grain * 0.18 + st.noise * 0.10) * energy * 0.40 * (sp.d_mix/100);
+    var sbuf = ac.createBuffer(1, Math.ceil(ac.sampleRate * sandDur), ac.sampleRate);
+    var sdat = sbuf.getChannelData(0);
+    for(var si=0; si<sdat.length; si++) sdat[si] = (Math.random()*2-1);
+    var ss = ac.createBufferSource(); ss.buffer = sbuf;
+    var sg = ac.createGain();
+    sg.gain.setValueAtTime(0.0001, when);
+    sg.gain.linearRampToValueAtTime(sandAmp,         when + 0.006);
+    sg.gain.linearRampToValueAtTime(sandAmp * 0.60,  when + 0.006 + sandDur * 0.25);
+    sg.gain.exponentialRampToValueAtTime(0.0001,     when + 0.006 + sandDur);
+    ss.connect(sg); sg.connect(sum);
+    ss.start(when); ss.stop(when + sandDur + 0.02);
+  }
+
+  // ─ E) HF グリッチ ──────────────────────────────
+  if(energy > 0.35 && sp.e_mix > 0){
+    var nGlitches = Math.floor((energy * 8 + size * 4) * (sp.e_count/100));
+    var eSpread = Math.max(0.001, sp.e_spread/1000);
+    for(var k=0; k<nGlitches; k++){
+      var gT2  = when + 0.001 + Math.random() * eSpread;
+      var gLen = 0.0003 + Math.random() * 0.0015;
+      var gbuf = ac.createBuffer(1, Math.max(8, Math.ceil(ac.sampleRate * gLen)), ac.sampleRate);
+      var gdat = gbuf.getChannelData(0);
+      var prev = 0;
+      for(var ci=0; ci<gdat.length; ci++){
+        var cur = Math.random()*2-1;
+        gdat[ci] = (cur - prev) * 0.7;
+        prev = cur;
+      }
+      var gs2 = ac.createBufferSource(); gs2.buffer = gbuf;
+      var ggg = ac.createGain();
+      ggg.gain.value = 0.08 * energy * (0.4 + Math.random()*0.6) * (sp.e_mix/100);
+      gs2.connect(ggg); ggg.connect(sum);
+      gs2.start(gT2); gs2.stop(gT2 + gLen + 0.005);
+    }
+  }
+
+  // ─ J) HF サインクリック ────────────────────────
+  if(sp.j_mix > 0 && sp.j_count > 0){
+    var jFreqs = [4000, 8000, 12000];
+    var nJ = sp.j_count;
+    for(var jj=0; jj<nJ; jj++){
+      var jF = jFreqs[jj % jFreqs.length] * (1 + (Math.random()-0.5) * 0.04);
+      if(jF > ac.sampleRate * 0.45) continue;
+      var jT = when + Math.random() * 0.010;
+      var jDec = 0.0015 + Math.random() * 0.0020;
+      var jAmp = (0.10 + st.stiff * 0.10) * energy * (0.6 + Math.random() * 0.4) * (sp.j_mix/100);
+      var jo = ac.createOscillator(); jo.type = "sine";
+      jo.frequency.value = jF;
+      var jg = ac.createGain();
+      jg.gain.setValueAtTime(0.0001, jT);
+      jg.gain.linearRampToValueAtTime(jAmp, jT + 0.0003);
+      jg.gain.setValueAtTime(jAmp, jT + jDec);
+      jg.gain.linearRampToValueAtTime(0.0001, jT + jDec + 0.0005);
+      jo.connect(jg); jg.connect(sum);
+      jo.start(jT); jo.stop(jT + jDec + 0.005);
+    }
+  }
+
+  // ─ K) HF 狭帯域ノイズバースト ─────────────────
+  if(sp.k_mix > 0 && sp.k_count > 0){
+    var nK_ = sp.k_count;
+    for(var kk2=0; kk2<nK_; kk2++){
+      var kT2 = when + Math.random() * 0.006;
+      var kLen2 = 0.002 + Math.random() * 0.004;
+      var kbuf2 = ac.createBuffer(1, Math.max(8, Math.ceil(ac.sampleRate * kLen2)), ac.sampleRate);
+      var kdat2 = kbuf2.getChannelData(0);
+      var p1 = 0, p2 = 0;
+      for(var ki=0; ki<kdat2.length; ki++){
+        var curK = Math.random()*2-1;
+        var hp1 = curK - p1;
+        var hp2 = hp1 - p2;
+        kdat2[ki] = hp2 * 0.5;
+        p1 = curK; p2 = hp1;
+      }
+      var ks2 = ac.createBufferSource(); ks2.buffer = kbuf2;
+      var kgg = ac.createGain();
+      kgg.gain.setValueAtTime(0.0001, kT2);
+      kgg.gain.linearRampToValueAtTime(0.10 * energy * (1.0 - st.damp*0.4) * (sp.k_mix/100), kT2 + 0.0005);
+      kgg.gain.exponentialRampToValueAtTime(0.0001, kT2 + 0.0005 + kLen2);
+      ks2.connect(kgg); kgg.connect(sum);
+      ks2.start(kT2); ks2.stop(kT2 + kLen2 + 0.005);
+    }
+  }
+
+  // 視覚: 波紋
+  var leadMs = Math.max(0, (when - ac.currentTime) * 1000);
+  setTimeout(function(){ pulses.push({x:Math.random()*0.8+0.1, r:3, a:Math.min(0.8, 0.3+energy*0.5)}); }, leadMs);
+}
+
+/* ── 律 動 ・ 声 ・ 効 果 バ ス ──────────────────────────
+   各石は独立した「声」を持ち、それぞれの BPM・律動・密度で並列に走る。
+   律動は固定パターン（4/4, 3/4, 5/16, 7/8, インド, アフリカ, ...）と
+   動的分布（1/f, ロジスティック, ランダム）の二系統。
+   全声から共通の遅延・残響バスへ送り、混交スライダで収束まで
+   各石を順に消す ─ 砂礫から、磁石へ最後まで残る。               */
+
+// 律動カタログ（16 分音符グリッド、1=打、0=休）
+var RHYTHMS = {
+  "4/4":        [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
+  "3/4":        [1,0,0,0, 1,0,0,0, 1,0,0,0],
+  "6/8":        [1,0,0, 1,0,0],
+  "7/8":        [1,0, 1,0, 1,0, 1,0, 1,0, 1,0, 1,0],
+  "5/16":       [1,0,0,0,0],
+  "4/16":       [1,0,0,0],
+  "Tresillo":   [1,0,0, 1,0,0, 1,0],
+  "Cinquillo":  [1,0,1, 1,0,1, 1,0],
+  "インド":      [1,0,0, 1,0, 1,0, 1,0,0, 1,0],
+  "アフリカ":    [1,0,1,0, 1,1,0,1, 0,1,0,1],
+  "Swing":      [1,0,0, 1,0, 1,0,0, 1,0],
+  "Clave 3-2":  [1,0,0,1, 0,0,1,0, 0,0,1,0, 1,0,0,0],
+  "Clave 2-3":  [0,0,1,0, 1,0,0,0, 1,0,0,1, 0,0,1,0],
+  "粒":         [1,1,1,1, 1,1,1,1],
+  "1/f":        "pink",
+  "ロジスティック": "logistic",
+  "ランダム":    "random",
+};
+var RHYTHM_NAMES = Object.keys(RHYTHMS);
+
+// Voss-McCartney 風 1/f
+var PINK_LEVELS = [Math.random(), Math.random(), Math.random(), Math.random(),
+                   Math.random(), Math.random(), Math.random()];
+var PINK_BEAT = 0;
+function pinkValue(){
+  PINK_BEAT++;
+  for(var k=1; k<PINK_LEVELS.length; k++){
+    if(PINK_BEAT % (1 << k) === 0) PINK_LEVELS[k] = Math.random();
+  }
+  PINK_LEVELS[0] = Math.random();
+  var s = 0;
+  for(var i=0; i<PINK_LEVELS.length; i++) s += PINK_LEVELS[i];
+  return s / PINK_LEVELS.length;
+}
+
+// ロジスティック写像（r=3.95 完全カオス）
+var LOG_X = 0.4;
+function stepLogistic(){
+  LOG_X = 3.95 * LOG_X * (1 - LOG_X);
+  return LOG_X;
+}
+
+// この拍で voice が打つか
+function shouldFire(voice){
+  var rh = RHYTHMS[voice.rhythm];
+  if(rh == null) return false;
+  var dens = (voice.density || 0) / 100;
+  if(rh === "pink")     return pinkValue() < dens;
+  if(rh === "logistic") return stepLogistic() < dens;
+  if(rh === "random")   return Math.random() < dens;
+  if(Array.isArray(rh)){
+    var idx = (voice._step || 0) % rh.length;
+    if(rh[idx] !== 1) return false;
+    return Math.random() < dens;
+  }
+  return false;
+}
+
+// 効果バス（Plate/Spring リバーブ、Stereo/PingPong ディレイ）と声ごとの送り
+var FX = { plate:null, spring:null, stereo:null, ping:null };
+var VOICE_NODES = {};
+
+// Plate IR：短いプリディレイ＋緻密な指数尾＋明るめ
+function makePlateIR(decay01, size01){
+  var rate = ac.sampleRate;
+  var dur  = 0.3 + (decay01/100) * 5.5;            // 0.3〜5.8 s
+  var len  = Math.ceil(rate * dur);
+  var buf  = ac.createBuffer(2, len, rate);
+  var pre  = Math.floor(rate * (size01/100) * 0.025);  // 〜25ms プリディレイ
+  var falloff = 1.2 + (size01/100) * 1.4;
+  for(var ch=0; ch<2; ch++){
+    var d = buf.getChannelData(ch);
+    for(var i=0; i<len; i++){
+      if(i < pre){ d[i] = 0; continue; }
+      var t = (i - pre) / (len - pre);
+      d[i] = (Math.random()*2-1) * Math.pow(1-t, falloff);
+    }
+  }
+  return buf;
+}
+
+// Spring IR：降下チャープ＋櫛形リップル＋ノイズ
+function makeSpringIR(decay01, size01){
+  var rate = ac.sampleRate;
+  var dur  = 0.2 + (decay01/100) * 4.0;            // 0.2〜4.2 s
+  var len  = Math.ceil(rate * dur);
+  var buf  = ac.createBuffer(2, len, rate);
+  var rippleHz = 0.015 + (size01/100) * 0.05;
+  var falloff = 1.6 + (size01/100) * 1.6;
+  for(var ch=0; ch<2; ch++){
+    var d = buf.getChannelData(ch);
+    var phase = 0;
+    for(var i=0; i<len; i++){
+      var t = i/len;
+      var f = 1100 - t*800 + (ch ? 60 : -60);
+      phase += 2*Math.PI*Math.max(20, f)/rate;
+      var s = Math.sin(phase) * 0.5;
+      var n = (Math.random()*2-1) * 0.3;
+      var ripple = Math.sin(i * rippleHz) * 0.18;
+      d[i] = (s + n + ripple) * Math.pow(1-t, falloff);
+    }
+  }
+  return buf;
+}
+
+// IR 再生成の遅延（スライダ操作中の連打を間引き）
+var IR_TIMERS = {};
+function reloadIR(type){
+  if(IR_TIMERS[type]) clearTimeout(IR_TIMERS[type]);
+  IR_TIMERS[type] = setTimeout(function(){
+    if(!FX[type] || !FX[type].conv) return;
+    var p = P.fx[type];
+    FX[type].conv.buffer = (type === "plate")
+      ? makePlateIR(p.decay, p.size)
+      : makeSpringIR(p.decay, p.size);
+  }, 160);
+}
+
+function setupReverbBus(type){
+  var p = P.fx[type];
+  var b = { input: ac.createGain(), conv: ac.createConvolver(), out: ac.createGain() };
+  b.conv.buffer = (type === "plate") ? makePlateIR(p.decay, p.size) : makeSpringIR(p.decay, p.size);
+  b.out.gain.value = p.mix / 100;
+  b.input.connect(b.conv); b.conv.connect(b.out); b.out.connect(master);
+  return b;
+}
+
+// Stereo ディレイ：左右独立、同方向フィードバック
+function setupStereoDelay(){
+  var p = P.fx.stereo;
+  var b = { input: ac.createGain(), out: ac.createGain() };
+  var splitter = ac.createChannelSplitter(2);
+  var merger   = ac.createChannelMerger(2);
+  // 左右で僅かに違う時間 → 散らかった反復
+  b.dL = ac.createDelay(2.5);  b.dL.delayTime.value = (p.time/1000) * 0.92;
+  b.dR = ac.createDelay(2.5);  b.dR.delayTime.value = (p.time/1000) * 1.08;
+  b.fbL = ac.createGain();     b.fbL.gain.value = p.feedback/100;
+  b.fbR = ac.createGain();     b.fbR.gain.value = p.feedback/100;
+  b.input.connect(splitter);
+  splitter.connect(b.dL, 0);
+  splitter.connect(b.dR, 1);
+  b.dL.connect(b.fbL); b.fbL.connect(b.dL);
+  b.dR.connect(b.fbR); b.fbR.connect(b.dR);
+  b.dL.connect(merger, 0, 0);
+  b.dR.connect(merger, 0, 1);
+  b.out.gain.value = p.mix/100;
+  merger.connect(b.out); b.out.connect(master);
+  return b;
+}
+
+// Ping-Pong：L⇄R を交互に跳ねる
+function setupPingPong(){
+  var p = P.fx.ping;
+  var b = { input: ac.createGain(), out: ac.createGain() };
+  var splitter = ac.createChannelSplitter(2);
+  var merger   = ac.createChannelMerger(2);
+  b.dL = ac.createDelay(2.5);   b.dL.delayTime.value = p.time/1000;
+  b.dR = ac.createDelay(2.5);   b.dR.delayTime.value = p.time/1000;
+  b.fbLR = ac.createGain();     b.fbLR.gain.value = p.feedback/100;  // L→R
+  b.fbRL = ac.createGain();     b.fbRL.gain.value = p.feedback/100;  // R→L
+  b.input.connect(splitter);
+  splitter.connect(b.dL, 0);
+  splitter.connect(b.dR, 1);
+  b.dL.connect(b.fbLR); b.fbLR.connect(b.dR);   // L 出 → R 入
+  b.dR.connect(b.fbRL); b.fbRL.connect(b.dL);   // R 出 → L 入
+  b.dL.connect(merger, 0, 0);
+  b.dR.connect(merger, 0, 1);
+  b.out.gain.value = p.mix/100;
+  merger.connect(b.out); b.out.connect(master);
+  return b;
+}
+
+function setupFX(){
+  if(FX.plate) return;
+  FX.plate  = setupReverbBus("plate");
+  FX.spring = setupReverbBus("spring");
+  FX.stereo = setupStereoDelay();
+  FX.ping   = setupPingPong();
+}
+
+// FX パラメータが変わった時の反映
+function applyFX(type){
+  if(!FX[type]) return;
+  var p = P.fx[type];
+  if(type === "plate" || type === "spring"){
+    FX[type].out.gain.value = p.mix/100;
+    reloadIR(type);
+  } else if(type === "stereo"){
+    FX.stereo.dL.delayTime.setTargetAtTime((p.time/1000) * 0.92, ac.currentTime, 0.05);
+    FX.stereo.dR.delayTime.setTargetAtTime((p.time/1000) * 1.08, ac.currentTime, 0.05);
+    FX.stereo.fbL.gain.value = p.feedback/100;
+    FX.stereo.fbR.gain.value = p.feedback/100;
+    FX.stereo.out.gain.value = p.mix/100;
+  } else if(type === "ping"){
+    FX.ping.dL.delayTime.setTargetAtTime(p.time/1000, ac.currentTime, 0.05);
+    FX.ping.dR.delayTime.setTargetAtTime(p.time/1000, ac.currentTime, 0.05);
+    FX.ping.fbLR.gain.value = p.feedback/100;
+    FX.ping.fbRL.gain.value = p.feedback/100;
+    FX.ping.out.gain.value = p.mix/100;
+  }
+}
+
+function setupVoiceNodes(){
+  Object.keys(STONES).forEach(function(s){
+    if(VOICE_NODES[s]) return;
+    var n = VOICE_NODES[s] = {
+      input:      ac.createGain(),  // strike の集音先
+      volume:     ac.createGain(),  // 音量フェーダ（混交で fade）
+      plateSend:  ac.createGain(),
+      springSend: ac.createGain(),
+      stereoSend: ac.createGain(),
+      pingSend:   ac.createGain(),
+      flingSend:  ac.createGain(),  // 物理関数による pingpong 飛ばし（追加で送る）
+    };
+    n.flingSend.gain.value = 0;
+    // ドライ
+    n.input.connect(n.volume);     n.volume.connect(master);
+    // 4 つの wet 送り
+    n.input.connect(n.plateSend);  n.plateSend.connect(FX.plate.input);
+    n.input.connect(n.springSend); n.springSend.connect(FX.spring.input);
+    n.input.connect(n.stereoSend); n.stereoSend.connect(FX.stereo.input);
+    n.input.connect(n.pingSend);   n.pingSend.connect(FX.ping.input);
+    // Fling は ping にもう一系統乗せる（基本 0、瞬時に boost）
+    n.input.connect(n.flingSend);  n.flingSend.connect(FX.ping.input);
+    updateVoiceNodes(s);
+  });
+}
+
+// 混交のフェード優先度（砂礫が先に消え、磁石が最後まで残る）
+var VOICE_FADE_PRIORITIES = {
+  "砂礫":   0.00,
+  "砂岩":   0.12,
+  "石灰岩": 0.30,
+  "玄武岩": 0.48,
+  "花崗岩": 0.66,
+  "磁石":   0.84,
+};
+function fadeOf(stone){
+  var pri = VOICE_FADE_PRIORITIES[stone] != null ? VOICE_FADE_PRIORITIES[stone] : 0.5;
+  var mix = (P.endmix || 0) / 100;
+  var width = 0.28;
+  var t = (mix - pri) / width;
+  return Math.max(0, Math.min(1, 1 - t));
+}
+function updateVoiceNodes(s){
+  var n = VOICE_NODES[s], v = P.voices && P.voices[s];
+  if(!n || !v) return;
+  var fade = fadeOf(s);
+  n.volume.gain.value     = (v.volume/100) * fade;
+  n.plateSend.gain.value  = (v.plate/100)  * fade;
+  n.springSend.gain.value = (v.spring/100) * fade;
+  n.stereoSend.gain.value = (v.stereo/100) * fade;
+  n.pingSend.gain.value   = (v.ping/100)   * fade;
+  // flingSend は flingTick が動的制御
+}
+function applyEndmix(){
+  if(!ac) return;
+  Object.keys(P.voices).forEach(updateVoiceNodes);
+}
+
+/* ── Fling ─ 物理関数で局所的に ping-pong へ短句を飛ばす ───
+   func: 1/f / ロジスティック / ランダム / パルス
+   rate: 発火頻度（0=ほぼ起きない、100=詰まる）
+   intensity: 発火時の ping 送り量（既存 voice.ping に加算）
+   duration: 一回の窓の長さ ms ─ この間に打たれた音だけが束ねて飛ぶ
+   発火時、現在 on の声から一つ選んで flingSend を瞬時に boost、窓終わりで戻す。*/
+var FLING_NAMES = ["1/f", "ロジスティック", "ランダム", "パルス"];
+var FLING_STATE = { active:false, voice:null, until:0, nextCheck:0 };
+
+function flingTick(){
+  if(!ac || !P.fling) return;
+  var now = ac.currentTime;
+
+  // 窓の終わり → 該当声の flingSend を 0 に落とす
+  if(FLING_STATE.active && now > FLING_STATE.until){
+    var n0 = FLING_STATE.voice && VOICE_NODES[FLING_STATE.voice];
+    if(n0){
+      n0.flingSend.gain.cancelScheduledValues(now);
+      n0.flingSend.gain.setTargetAtTime(0.0, now, 0.04);
+    }
+    FLING_STATE.active = false;
+    FLING_STATE.voice = null;
+  }
+
+  if(now < FLING_STATE.nextCheck) return;
+  FLING_STATE.nextCheck = now + 0.04;  // 25 Hz チェック
+  if(FLING_STATE.active) return;
+  if(P.fling.intensity <= 0 || P.fling.rate <= 0) return;
+
+  // 関数に応じて発火判定
+  var rate = P.fling.rate / 100;
+  var fire = false;
+  if(P.fling.func === "1/f"){
+    fire = pinkValue() > (1 - rate * 0.08);
+  } else if(P.fling.func === "ロジスティック"){
+    fire = stepLogistic() > (1 - rate * 0.08);
+  } else if(P.fling.func === "ランダム"){
+    fire = Math.random() < (rate * 0.08);
+  } else if(P.fling.func === "パルス"){
+    var period = Math.max(0.15, (1 - rate) * 5 + 0.2);  // 0.2〜5.2 s
+    fire = ((now % period) < 0.06);
+  }
+  if(!fire) return;
+
+  // 候補：on かつ収束で消えていない声
+  var cand = Object.keys(P.voices).filter(function(s){
+    return P.voices[s].on && fadeOf(s) > 0.05;
+  });
+  if(!cand.length) return;
+  var stone = cand[Math.floor(Math.random() * cand.length)];
+  var n = VOICE_NODES[stone]; if(!n) return;
+
+  FLING_STATE.active = true;
+  FLING_STATE.voice  = stone;
+  FLING_STATE.until  = now + Math.max(0.05, P.fling.duration / 1000);
+
+  var g = (P.fling.intensity / 100) * 1.4;
+  n.flingSend.gain.cancelScheduledValues(now);
+  n.flingSend.gain.setValueAtTime(0, now);
+  n.flingSend.gain.linearRampToValueAtTime(g, now + 0.006);
+}
+
+/* ── 並 列 ス ケ ジ ュ ー ラ ─────────────────────────── */
+var SCHED_TICK_MS = 25, schedWorker = null;
+var SCHED_AHEAD   = 0.10;
+function resetVoices(){
+  if(!ac) return;
+  var now = ac.currentTime + 0.08;
+  Object.keys(P.voices).forEach(function(s){
+    var v = P.voices[s];
+    v._nextStepAt = now;
+    v._step = 0;
+  });
+}
+function schedStart(){
+  resetVoices();
+  schedRun();
+  if(!schedWorker){
+    var src="let t;onmessage=e=>{clearInterval(t);if(e.data==='start')t=setInterval(()=>postMessage(0),25)}";
+    schedWorker=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));
+    schedWorker.onmessage=schedRun;
+  }
+  schedWorker.postMessage('start');
+}
+function schedRun(){
+  if(!running) return;
+  try {
+    flingTick();
+    var horizon = ac.currentTime + (document.hidden ? 1.5 : SCHED_AHEAD);
+    Object.keys(P.voices).forEach(function(s){
+      var v = P.voices[s];
+      if(!v.on) return;
+      if(fadeOf(s) <= 0.001) return;  // 完全に消えた声はスキップ
+      if(v._nextStepAt == null){ v._nextStepAt = ac.currentTime + 0.05; v._step = 0; }
+      var stepDur = 60 / Math.max(20, Math.min(240, v.bpm)) / 4;  // 16 分音符
+      while(v._nextStepAt < horizon){
+        if(shouldFire(v)){
+          var tJit = (Math.random()*2-1) * P.vary * 0.15 * stepDur;
+          try{
+            strike(v._nextStepAt + tJit, { stone: s, size: v.size });
+          }catch(e){ console.error("strike", e); }
+        }
+        v._nextStepAt += stepDur;
+        v._step = (v._step + 1);
+      }
+    });
+  } catch(e){ console.error("sched", e); }
+}
+
+function elsysMacro(name,value){
+  var v=Math.max(0,Math.min(1,+value||0));
+  if(name==='macro.a'){
+    P.energy=v; P.vary=v;
+    Object.keys(P.voices).forEach(function(k){P.voices[k].density=Math.round(100*v);});
+  }else if(name==='macro.b'){
+    P.fling.intensity=Math.round(100*v);
+    Object.keys(P.voices).forEach(function(k){P.voices[k].size=Math.round(100-80*v);updateVoiceNodes(k);});
+  }else if(name==='macro.c'){
+    Object.keys(P.voices).forEach(function(k){
+      P.voices[k].stereo=Math.round(100*v);P.voices[k].plate=Math.round(100*v);P.voices[k].spring=Math.round(100*v);
+      updateVoiceNodes(k);
+    });
+    P.fx.stereo.feedback=Math.round(90*v);P.fx.ping.feedback=Math.round(90*v);
+    ['plate','spring','stereo','ping'].forEach(applyFX);
+  }else if(name==='volume'){
+    P.master=v*v;applyMaster();
+  }
+  syncUI();
+}
+
+/* ── 運び ────────────────────────────────────────────── */
+function ensure(){
+  if(ac) return;
+  ac = new (window.AudioContext||window.webkitAudioContext)();
+  master = ac.createGain(); master.gain.value = 0.0001;
+  master.connect(ac.destination);
+  ann = ac.createAnalyser(); ann.fftSize = 1024; master.connect(ann);
+  abuf = new Float32Array(ann.fftSize);
+
+  // 効果バス＋声ごとの送り（一度だけ構築）
+  setupFX();
+  setupVoiceNodes();
+
+  // 葉：?field の時だけ場へ参加する
+  if(FIELD_ON) registerElSystemaInstrument({
+    id:"stone-beats", audioContext:ac, outputNode:master,
+    play:run, stop:halt,
+    setParam:function(n,v){
+      if(/^(macro\.[abc]|volume)$/.test(n)){ elsysMacro(n,v); return; }
+      // 声：voice.<石>.<属性>（例: "voice.玄武岩.bpm", "voice.砂礫.plate"）
+      if(typeof n === "string" && n.indexOf("voice.") === 0){
+        var parts = n.split(".");
+        if(parts.length === 3 && P.voices[parts[1]]){
+          var k = parts[2];
+          if(k === "rhythm" || k === "on"){
+            P.voices[parts[1]][k] = (k==="on") ? !!(+v || v===true || v==="true") : String(v);
+          } else {
+            P.voices[parts[1]][k] = +v;
+          }
+          updateVoiceNodes(parts[1]);
+          syncUI();
+          return;
+        }
+      }
+      // FX：fx.<type>.<属性>（例: "fx.plate.decay", "fx.ping.feedback"）
+      if(typeof n === "string" && n.indexOf("fx.") === 0){
+        var fp = n.split(".");
+        if(fp.length === 3 && P.fx[fp[1]]){
+          P.fx[fp[1]][fp[2]] = +v;
+          applyFX(fp[1]);
+          syncUI();
+          return;
+        }
+      }
+      // Fling：fling.<属性>（func は文字列）
+      if(typeof n === "string" && n.indexOf("fling.") === 0){
+        var k2 = n.substring(6);
+        if(k2 === "func") P.fling.func = String(v);
+        else if(P.fling[k2] != null) P.fling[k2] = +v;
+        syncUI();
+        return;
+      }
+      if(!(n in P)) return;
+      if(typeof P[n] === "string"){
+        P[n] = String(v);  // edit_stone のような文字列
+      } else {
+        var nv = +v;
+        if(["energy","vary","master"].indexOf(n) >= 0){
+          P[n] = nv > 2 ? nv/100 : nv;
+        } else if(n === "endmix"){
+          P[n] = nv;
+          applyEndmix();
+        } else {
+          P[n] = nv;
+        }
+      }
+      syncUI();
+      applyMaster();
+    },
+    getPreset:function(){ return JSON.parse(JSON.stringify(P)); },
+    loadPreset:function(p){ if(p) Object.assign(P,p); Object.keys(P.voices).forEach(updateVoiceNodes); ['plate','spring','stereo','ping'].forEach(applyFX); syncUI(); applyMaster(); },
+  });
+}
+function applyMaster(){
+  if(!master) return;
+  var g = Math.max(0, P.master * 1.0);
+  master.gain.linearRampToValueAtTime(running ? g : 0, ac.currentTime + 0.08);
+}
+async function run(){
+  ensure(); if(running) return;
+  if(ac.state==="suspended") await ac.resume();
+  running = true; t0 = Date.now();
+  applyMaster();
+  document.getElementById("run").classList.add("live");
+  schedStart();
+}
+function halt(){
+  if(!running) return;
+  running = false;
+  if(schedWorker) schedWorker.postMessage('stop');
+  applyMaster();
+  document.getElementById("run").classList.remove("live");
+}
+
+/* ── 描画（オシロ＋波紋） ─────────────────────────────── */
+var cv = document.getElementById("scope");
+var cx = cv.getContext("2d");
+var pulses = [];
+function sizeCanvas(){
+  var d = window.devicePixelRatio || 1;
+  cv.width = cv.clientWidth * d; cv.height = cv.clientHeight * d;
+  cx.setTransform(d,0,0,d,0,0);
+}
+window.addEventListener("resize", sizeCanvas); sizeCanvas();
+function draw(){
+  var W = cv.clientWidth, H = cv.clientHeight;
+  cx.clearRect(0,0,W,H);
+  cx.strokeStyle = "rgba(214,210,196,.07)"; cx.lineWidth = 0.5;
+  cx.beginPath(); cx.moveTo(0,H/2); cx.lineTo(W,H/2); cx.stroke();
+  if(ann){
+    ann.getFloatTimeDomainData(abuf);
+    cx.strokeStyle = "rgba(200,183,138,.55)"; cx.lineWidth = 1;
+    cx.beginPath();
+    for(var i=0;i<abuf.length;i++){
+      var x = i/abuf.length*W, y = H/2 + abuf[i]*H*0.42;
+      if(i) cx.lineTo(x,y); else cx.moveTo(x,y);
+    }
+    cx.stroke();
+  }
+  for(var p=pulses.length-1;p>=0;p--){
+    var q = pulses[p]; q.r += 2.6; q.a *= 0.94;
+    cx.strokeStyle = "rgba(176,138,106,"+q.a+")"; cx.lineWidth = 0.9;
+    cx.beginPath(); cx.arc(q.x*W, H/2, q.r, 0, 6.2832); cx.stroke();
+    if(q.a < 0.02) pulses.splice(p,1);
+  }
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+/* ── 物理表示（隠さない） ──────────────────────────── */
+function readout(){
+  var st = STONES[P.edit_stone] || STONES["玄武岩"];
+  var vSize = (P.voices && P.voices[P.edit_stone]) ? P.voices[P.edit_stone].size : 50;
+  var size = Math.max(0.02, vSize/100);
+  var f0 = Math.min(5000, 32 * Math.sqrt(st.stiff) / Math.max(0.05, Math.min(1, size)));
+  var dec = (0.06 + size*2.4) * (1.05 - st.damp*0.75);
+  var gr = Math.min(1, st.grain * Math.pow(Math.max(0, 1-size),1.2) + (f0>2400?0.35:0));
+  document.getElementById("physh").innerHTML =
+    "編 <b>"+P.edit_stone+"</b> ・形 <b>"+st.shape+"</b> ・大きさ <b>"+vSize+"</b><br>"+
+    "f₀ ≈ <b>"+f0.toFixed(0)+"</b> Hz<br>"+
+    "減衰 ≈ <b>"+dec.toFixed(2)+"</b> s<br>"+
+    "砕粒 <b>"+(gr*100).toFixed(0)+"%</b>";
+}
+
+/* ── UI ──────────────────────────────────────────────── */
+// 音色設計パネルの定義 ─ 各層の振幅・周波数・減衰などをスライダ化
+var PARAM_PANELS = [
+  { title: "A ─ Hertzian クリック", params: [
+    { key:"a_mix",  label:"A 振幅",   min:0,  max:200, val:100 },
+    { key:"a_freq", label:"A 周波%",  min:30, max:200, val:100 },
+    { key:"a_dec",  label:"A 減衰%",  min:20, max:300, val:100 },
+  ]},
+  { title: "H ─ 金物（カウベル）", params: [
+    { key:"h_mix",  label:"H 振幅",   min:0,  max:200, val:100 },
+    { key:"h_freq", label:"H 基音%",  min:30, max:300, val:100 },
+    { key:"h_dec",  label:"H 減衰%",  min:20, max:300, val:100 },
+    { key:"h_sq",   label:"H 矩形%",  min:0,  max:100, val:35  },
+  ]},
+  { title: "B ─ 帯域ノイズ", params: [
+    { key:"b_mix",  label:"B 全体",   min:0,  max:200, val:100 },
+    { key:"b_6k",   label:"6.5k",     min:0,  max:200, val:120 },
+    { key:"b_3k",   label:"3k",       min:0,  max:200, val:110 },
+    { key:"b_1k",   label:"1.3k",     min:0,  max:200, val:40  },
+    { key:"b_550",  label:"550",      min:0,  max:200, val:30  },
+    { key:"b_180",  label:"180",      min:0,  max:200, val:25  },
+  ]},
+  { title: "F ─ 無機ノック", params: [
+    { key:"f_mix",   label:"F 振幅",  min:0,  max:200, val:100 },
+    { key:"f_count", label:"F 本数%", min:0,  max:300, val:100 },
+    { key:"f_dec",   label:"F 減衰%", min:20, max:500, val:100 },
+  ]},
+  { title: "I ─ サブ点", params: [
+    { key:"i_mix",   label:"I 振幅",  min:0,  max:200, val:100 },
+    { key:"i_freq",  label:"I 周波%", min:30, max:200, val:100 },
+    { key:"i_dec",   label:"I 減衰%", min:20, max:500, val:100 },
+  ]},
+  { title: "C ─ 質量点", params: [
+    { key:"c_mix",   label:"C 振幅",  min:0,  max:200, val:100 },
+    { key:"c_freq",  label:"C 周波%", min:30, max:200, val:100 },
+    { key:"c_dec",   label:"C 減衰%", min:20, max:500, val:100 },
+  ]},
+  { title: "D ─ 砂尾", params: [
+    { key:"d_mix",   label:"D 振幅",  min:0,  max:200, val:100 },
+    { key:"d_dur",   label:"D 長さ%", min:10, max:300, val:100 },
+  ]},
+  { title: "E ─ HF グリッチ", params: [
+    { key:"e_mix",    label:"E 振幅",   min:0,  max:200, val:100 },
+    { key:"e_count",  label:"E 本数%",  min:0,  max:300, val:100 },
+    { key:"e_spread", label:"E 散布ms", min:5,  max:300, val:80  },
+  ]},
+  { title: "J ─ HF サインクリック", params: [
+    { key:"j_mix",   label:"J 振幅",  min:0,  max:200, val:100 },
+    { key:"j_count", label:"J 本数",  min:0,  max:8,   val:3   },
+  ]},
+  { title: "K ─ HF 狭帯域", params: [
+    { key:"k_mix",   label:"K 振幅",  min:0,  max:200, val:100 },
+    { key:"k_count", label:"K 本数",  min:0,  max:4,   val:1   },
+  ]},
+];
+
+function renderPanels(){
+  var host = document.getElementById("paramPanels");
+  if(!host) return;
+  var html = "";
+  PARAM_PANELS.forEach(function(panel){
+    html += '<div class="panel"><div class="ph">'+panel.title+'</div><div class="body">';
+    panel.params.forEach(function(p){
+      html += '<div class="row">'
+        + '<span class="k">'+p.label+'</span>'
+        + '<input type="range" id="'+p.key+'" min="'+p.min+'" max="'+p.max+'" value="'+p.val+'">'
+        + '<span class="val" id="'+p.key+'V">'+p.val+'</span>'
+        + '</div>';
+    });
+    html += '</div></div>';
+  });
+  host.innerHTML = html;
+}
+
+function exportPreset(){
+  var out = {};
+  PARAM_PANELS.forEach(function(panel){
+    panel.params.forEach(function(p){ out[p.key] = P[p.key]; });
+  });
+  var str = '// "'+P.edit_stone+'": { preset: '+JSON.stringify(out)+' }';
+  var ta = document.getElementById("exportOut");
+  if(ta) ta.value = str;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(str).catch(function(){});
+  }
+}
+
+// 声ストリップの構成
+var VOICE_PARAMS = [
+  {key:"bpm",     label:"速度",   min:20,  max:240},
+  {key:"size",    label:"大きさ", min:2,   max:200},
+  {key:"volume",  label:"音量",   min:0,   max:100},
+  {key:"density", label:"密度",   min:0,   max:100},
+  {key:"plate",   label:"Plate",  min:0,   max:100},
+  {key:"spring",  label:"Spring", min:0,   max:100},
+  {key:"stereo",  label:"Stereo", min:0,   max:100},
+  {key:"ping",    label:"Ping",   min:0,   max:100},
+];
+
+// FX パネル定義
+var FX_PANELS = [
+  { type:"plate",  title:"Plate ─ 板リバーブ", params:[
+    {key:"decay", label:"Decay",  min:0,   max:100},
+    {key:"size",  label:"Size",   min:0,   max:100},
+    {key:"mix",   label:"Mix",    min:0,   max:100},
+  ]},
+  { type:"spring", title:"Spring ─ ばねリバーブ", params:[
+    {key:"decay", label:"Decay",  min:0,   max:100},
+    {key:"size",  label:"Size",   min:0,   max:100},
+    {key:"mix",   label:"Mix",    min:0,   max:100},
+  ]},
+  { type:"stereo", title:"Stereo Delay", params:[
+    {key:"time",     label:"Time ms", min:30,  max:1500},
+    {key:"feedback", label:"Feedback",min:0,   max:95  },
+    {key:"mix",      label:"Mix",     min:0,   max:100 },
+  ]},
+  { type:"ping",   title:"Ping-Pong Delay", params:[
+    {key:"time",     label:"Time ms", min:30,  max:1500},
+    {key:"feedback", label:"Feedback",min:0,   max:95  },
+    {key:"mix",      label:"Mix",     min:0,   max:100 },
+  ]},
+];
+
+function renderVoices(){
+  var host = document.getElementById("voicePanels");
+  if(!host) return;
+  var html = "";
+  Object.keys(STONES).forEach(function(s){
+    var v = P.voices[s];
+    html += '<div class="panel voice'+(v.on?'':' off')+'" data-stone="'+s+'">'
+      + '<div class="ph">'
+      + '<label class="von"><input type="checkbox" id="v_'+s+'_on"'+(v.on?' checked':'')+'> '+s+'</label>'
+      + '</div><div class="body">'
+      + '<div class="row"><span class="k">律動</span>'
+      + '<select id="v_'+s+'_rhythm">'
+      + RHYTHM_NAMES.map(function(r){
+          return '<option value="'+r+'"'+(r===v.rhythm?' selected':'')+'>'+r+'</option>';
+        }).join('')
+      + '</select></div>';
+    VOICE_PARAMS.forEach(function(p){
+      html += '<div class="row">'
+        + '<span class="k">'+p.label+'</span>'
+        + '<input type="range" id="v_'+s+'_'+p.key+'" min="'+p.min+'" max="'+p.max+'" value="'+v[p.key]+'">'
+        + '<span class="val" id="v_'+s+'_'+p.key+'V">'+v[p.key]+'</span>'
+        + '</div>';
+    });
+    html += '</div></div>';
+  });
+  host.innerHTML = html;
+}
+
+function renderFX(){
+  var host = document.getElementById("fxPanels");
+  if(!host) return;
+  var html = "";
+  FX_PANELS.forEach(function(panel){
+    html += '<div class="panel"><div class="ph">'+panel.title+'</div><div class="body">';
+    panel.params.forEach(function(p){
+      var v = P.fx[panel.type][p.key];
+      html += '<div class="row">'
+        + '<span class="k">'+p.label+'</span>'
+        + '<input type="range" id="fx_'+panel.type+'_'+p.key+'" min="'+p.min+'" max="'+p.max+'" value="'+v+'">'
+        + '<span class="val" id="fx_'+panel.type+'_'+p.key+'V">'+v+'</span>'
+        + '</div>';
+    });
+    html += '</div></div>';
+  });
+  host.innerHTML = html;
+}
+
+function bindFX(){
+  FX_PANELS.forEach(function(panel){
+    panel.params.forEach(function(p){
+      var e = document.getElementById('fx_'+panel.type+'_'+p.key);
+      var v = document.getElementById('fx_'+panel.type+'_'+p.key+'V');
+      if(!e) return;
+      e.addEventListener('input', function(){
+        P.fx[panel.type][p.key] = +e.value;
+        if(v) v.textContent = e.value;
+        applyFX(panel.type);
+      });
+    });
+  });
+}
+
+function bindFling(){
+  var fSel = document.getElementById("flingFunc");
+  if(fSel){
+    fSel.innerHTML = FLING_NAMES.map(function(n){
+      return '<option value="'+n+'"'+(n===P.fling.func?' selected':'')+'>'+n+'</option>';
+    }).join("");
+    fSel.addEventListener("change", function(){ P.fling.func = fSel.value; });
+  }
+  [["flingI","intensity"],["flingR","rate"],["flingD","duration"]].forEach(function(pair){
+    var e = document.getElementById(pair[0]);
+    var v = document.getElementById(pair[0]+"V");
+    if(!e) return;
+    e.addEventListener("input", function(){
+      P.fling[pair[1]] = +e.value;
+      if(v) v.textContent = e.value;
+    });
+  });
+}
+
+function bindVoices(){
+  Object.keys(STONES).forEach(function(s){
+    var on = document.getElementById('v_'+s+'_on');
+    if(on){
+      on.addEventListener('change', function(){
+        P.voices[s].on = on.checked;
+        var panel = document.querySelector('.voice[data-stone="'+s+'"]');
+        if(panel) panel.classList.toggle('off', !on.checked);
+        if(on.checked && running && ac){
+          P.voices[s]._nextStepAt = ac.currentTime + 0.05;
+          P.voices[s]._step = 0;
+        }
+      });
+    }
+    var rh = document.getElementById('v_'+s+'_rhythm');
+    if(rh){
+      rh.addEventListener('change', function(){
+        P.voices[s].rhythm = rh.value;
+        P.voices[s]._step = 0;
+      });
+    }
+    VOICE_PARAMS.forEach(function(p){
+      var e = document.getElementById('v_'+s+'_'+p.key);
+      var v2 = document.getElementById('v_'+s+'_'+p.key+'V');
+      if(!e) return;
+      e.addEventListener('input', function(){
+        P.voices[s][p.key] = +e.value;
+        if(v2) v2.textContent = e.value;
+        if(['volume','plate','spring','stereo','ping'].indexOf(p.key) >= 0) updateVoiceNodes(s);
+      });
+    });
+  });
+}
+
+function syncUI(){
+  var ss = document.getElementById("stoneSel");
+  if(ss) ss.value = P.edit_stone;
+  ["endmix"].forEach(function(k){
+    var e = document.getElementById(k); if(e) e.value = P[k];
+    var v = document.getElementById(k+"V"); if(v) v.textContent = P[k];
+  });
+  ["energy","vary","master"].forEach(function(k){
+    var e = document.getElementById(k); if(e) e.value = Math.round(P[k]*100);
+    var v = document.getElementById(k+"V"); if(v) v.textContent = Math.round(P[k]*100);
+  });
+  // 声ストリップの値を流し込む
+  if(P.voices){
+    Object.keys(P.voices).forEach(function(s){
+      var v = P.voices[s];
+      var on = document.getElementById('v_'+s+'_on');
+      if(on) on.checked = !!v.on;
+      var rh = document.getElementById('v_'+s+'_rhythm');
+      if(rh) rh.value = v.rhythm;
+      VOICE_PARAMS.forEach(function(p){
+        var e = document.getElementById('v_'+s+'_'+p.key);
+        var vv = document.getElementById('v_'+s+'_'+p.key+'V');
+        if(e) e.value = v[p.key];
+        if(vv) vv.textContent = v[p.key];
+      });
+    });
+  }
+  // FX 値
+  if(P.fx){
+    FX_PANELS.forEach(function(panel){
+      panel.params.forEach(function(p){
+        var e = document.getElementById('fx_'+panel.type+'_'+p.key);
+        var v = document.getElementById('fx_'+panel.type+'_'+p.key+'V');
+        var val = P.fx[panel.type][p.key];
+        if(e) e.value = val;
+        if(v) v.textContent = val;
+      });
+    });
+  }
+  // Fling 値
+  if(P.fling){
+    var fSel = document.getElementById("flingFunc");
+    if(fSel) fSel.value = P.fling.func;
+    [["flingI","intensity"],["flingR","rate"],["flingD","duration"]].forEach(function(pair){
+      var e = document.getElementById(pair[0]);
+      var vv = document.getElementById(pair[0]+"V");
+      if(e) e.value = P.fling[pair[1]];
+      if(vv) vv.textContent = P.fling[pair[1]];
+    });
+  }
+  PARAM_PANELS.forEach(function(panel){
+    panel.params.forEach(function(p){
+      var e = document.getElementById(p.key);
+      var v = document.getElementById(p.key+"V");
+      if(e) e.value = P[p.key];
+      if(v) v.textContent = P[p.key];
+    });
+  });
+  readout();
+}
+
+function bindUI(){
+  // 編集対象（音色設計の対象石）
+  var sel = document.getElementById("stoneSel");
+  sel.innerHTML = Object.keys(STONES).map(function(s){
+    return '<option value="'+s+'"'+(s===P.edit_stone?' selected':'')+'>'+s+'</option>';
+  }).join("");
+  sel.addEventListener("change", function(){
+    P.edit_stone = sel.value;
+    var stPreset = STONES[P.edit_stone] && STONES[P.edit_stone].preset;
+    if(stPreset){ Object.assign(P, stPreset); syncUI(); }
+    readout();
+  });
+
+  function bindRange(id, key, scale01, after){
+    var e = document.getElementById(id), v = document.getElementById(id+"V");
+    if(!e) return;
+    e.addEventListener("input", function(){
+      var val = +e.value;
+      P[key] = scale01 ? val/100 : val;
+      if(v) v.textContent = val;
+      if(key === "master") applyMaster();
+      if(after) after();
+      readout();
+    });
+  }
+  bindRange("energy", "energy", true);
+  bindRange("vary",   "vary",   true);
+  bindRange("master", "master", true);
+  bindRange("endmix", "endmix", false, applyEndmix);
+
+  // 声ストリップ（6 石）
+  renderVoices();
+  bindVoices();
+
+  // 効果パネル＋ Fling
+  renderFX();
+  bindFX();
+  bindFling();
+
+  // 音色設計パネル
+  renderPanels();
+  PARAM_PANELS.forEach(function(panel){
+    panel.params.forEach(function(p){
+      var e = document.getElementById(p.key);
+      var v = document.getElementById(p.key+"V");
+      if(!e) return;
+      e.addEventListener("input", function(){
+        P[p.key] = +e.value;
+        v.textContent = e.value;
+      });
+    });
+  });
+
+  var ex = document.getElementById("exportBtn");
+  if(ex) ex.addEventListener("click", exportPreset);
+
+  document.getElementById("run").onclick  = run;
+  document.getElementById("halt").onclick = halt;
+}
+// 起動時、編集対象の preset を P に流し込む
+(function(){
+  var pst = STONES[P.edit_stone] && STONES[P.edit_stone].preset;
+  if(pst) Object.assign(P, pst);
+})();
+bindUI(); syncUI();
+if(FIELD_ON) ensure();
+
+setInterval(function(){
+  var clk = document.getElementById("clock");
+  if(running){
+    var s = Math.floor((Date.now()-t0)/1000);
+    clk.textContent = ("0"+Math.floor(s/60)).slice(-2)+":"+("0"+(s%60)).slice(-2);
+  } else {
+    clk.textContent = "--:--";
+  }
+}, 500);
+
+})();
+</script>
+</body>
+</html>
