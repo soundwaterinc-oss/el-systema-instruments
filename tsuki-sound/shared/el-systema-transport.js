@@ -21,7 +21,9 @@
   // ─ WebSocket transport (案B) ───────────────────────────────────────────────
   function createWsTransport(opts) {
     const url = (opts && opts.url) || DEFAULT_WS_URL;
-    const reconnectMs = (opts && opts.reconnectMs) || 1200;
+    // INV-4: 指数バックオフ 1s/2s/4s/8s（上限8s）。成功接続で 1s にリセット。
+    const backoffMax = (opts && opts.backoffMax) || 8000;
+    let backoff = (opts && opts.reconnectMs) || 1000;
     let ws = null;
     let closed = false;
     const onMsg = [];
@@ -37,6 +39,7 @@
         return;
       }
       ws.addEventListener("open", function () {
+        backoff = (opts && opts.reconnectMs) || 1000;   // INV-4: 接続成功でバックオフをリセット
         // 滞留分を吐く
         while (outbox.length) {
           try { ws.send(outbox.shift()); } catch (_) { break; }
@@ -50,7 +53,7 @@
       });
       ws.addEventListener("close", function () {
         for (let i = 0; i < onClose.length; i++) onClose[i]();
-        if (!closed) setTimeout(connect, reconnectMs);
+        if (!closed) { setTimeout(connect, backoff); backoff = Math.min(backoffMax, backoff * 2); }
       });
       ws.addEventListener("error", function () { /* close が来る */ });
     }

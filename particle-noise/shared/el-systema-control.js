@@ -170,42 +170,63 @@
     }
 
     // ─ 御題受け（relay）────────────────────────────────────────────
-    const inflightRamps = {}; // name -> rAF id
+    const inflightRamps = {}; // name -> { rafId, token }
+    function applyParam(name, value) {
+      if (typeof cb.setParam !== "function") {
+        sendErr("ramp", "setParam not provided");
+        return false;
+      }
+      try {
+        cb.setParam(name, value);
+        return true;
+      } catch (e) {
+        sendErr("ramp", e.message || String(e));
+        return false;
+      }
+    }
     function rampParam(name, from, to, durMs, startAt) {
       if (typeof cb.ramp === "function") {
         // 器が自前で実装するならそれを使う
         try { cb.ramp(name, from, to, durMs); } catch (e) { sendErr("ramp", e.message || String(e)); }
         return;
       }
-      // 既定の rAF ramp（setParam を細かく呼ぶ）
-      const setter = cb.setParam;
-      if (typeof setter !== "function") {
-        sendErr("ramp", "setParam not provided");
+      if (inflightRamps[name] && inflightRamps[name].rafId) {
+        cancelAnimationFrame(inflightRamps[name].rafId);
+      }
+      if (!(durMs > 0)) {
+        delete inflightRamps[name];
+        applyParam(name, to);
         return;
       }
-      // 既存 ramp の畳み込み
-      if (inflightRamps[name]) { cancelAnimationFrame(inflightRamps[name]); }
-      const t0 = (startAt && startAt > Shapes.nowMs()) ? startAt : Shapes.nowMs();
+      const token = Shapes.newRelayId();
+      const t0 = (typeof startAt === "number" && startAt > Shapes.nowMs()) ? startAt : Shapes.nowMs();
+      inflightRamps[name] = { rafId: 0, token: token };
       function step() {
+        const handle = inflightRamps[name];
+        if (!handle || handle.token !== token) return;
         const now = Shapes.nowMs();
-        const t = (now - t0) / durMs;
-        if (t <= 0) {
-          inflightRamps[name] = requestAnimationFrame(step);
+        if (now < t0) {
+          handle.rafId = requestAnimationFrame(step);
           return;
         }
-        if (t >= 1) {
-          try { setter(name, to); } catch (e) { sendErr("ramp", e.message || String(e)); }
+        const t = Math.min(1, (now - t0) / durMs);
+        const v = from + (to - from) * t;
+        if (!applyParam(name, v)) {
           delete inflightRamps[name];
           return;
         }
-        const v = from + (to - from) * t;
-        try { setter(name, v); } catch (e) { sendErr("ramp", e.message || String(e)); }
-        inflightRamps[name] = requestAnimationFrame(step);
+        if (t >= 1) {
+          delete inflightRamps[name];
+          return;
+        }
+        handle.rafId = requestAnimationFrame(step);
       }
-      inflightRamps[name] = requestAnimationFrame(step);
+      inflightRamps[name].rafId = requestAnimationFrame(step);
     }
     function cancelAllRamps() {
-      for (const k in inflightRamps) cancelAnimationFrame(inflightRamps[k]);
+      for (const k in inflightRamps) {
+        if (inflightRamps[k].rafId) cancelAnimationFrame(inflightRamps[k].rafId);
+      }
       for (const k in inflightRamps) delete inflightRamps[k];
     }
 
@@ -225,9 +246,12 @@
             break;
           case "stop":
             cancelAllRamps();
+            if (stim) stim.setParam("灯", 0);
             if (typeof cb.stop === "function") cb.stop();
             break;
           case "setParam":
+            // 祭祀語彙の刺激パラメータは刺激層へ、その他は器へ
+            if (stim && /^(灯|脈|息|眠|体|相|律|揺|光|刻|位)/.test(m.name)) { stim.setParam(m.name, m.value); break; }
             if (typeof cb.setParam === "function") cb.setParam(m.name, m.value);
             break;
           case "ramp":
@@ -267,9 +291,22 @@
 
     startKehai();
 
+    // ── 刺激層の自動アタッチ（全楽器共通・足すだけ）──
+    // assr.js が読み込まれ、ctx/outputNode が渡されていれば、既存音源に触れず刺激層を並列に載せる。
+    // これにより「灯/脈/息/眠/体/相/律/揺/光」の刺激パラメータが全楽器で自動的に使えるようになる。
+    let stim = null;
+    if (typeof root.registerElSystemaStimulus === "function" && config.audioContext && config.outputNode) {
+      try {
+        stim = root.registerElSystemaStimulus({
+          id: id, audioContext: config.audioContext, outputNode: config.outputNode, transport: transport,
+        });
+      } catch (e) { /* 刺激層は任意。失敗しても器は通常動作 */ }
+    }
+
     return {
       id,
       transport,
+      stimulus: stim,
       getKehai: function () {
         const r = observer ? observer.read() : { presence: 0, low: 0, high: 0 };
         return {

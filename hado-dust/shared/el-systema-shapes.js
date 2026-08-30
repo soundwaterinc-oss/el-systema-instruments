@@ -50,7 +50,9 @@
     return hasCommon(m) && m.t === "kehai"
       && isString(m.from)
       && isNumber(m.presence) && isNumber(m.low) && isNumber(m.high)
-      && isBool(m.everSpoke);
+      // everSpoke は従来楽器のみ（任意）。§7.6 acoustic node は role/playing を持ち everSpoke を持たない。
+      && (m.everSpoke === undefined || isBool(m.everSpoke))
+      && (m.role === undefined || isString(m.role));
   }
 
   function isSilence(m) {

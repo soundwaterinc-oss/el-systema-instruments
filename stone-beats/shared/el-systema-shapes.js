@@ -10,19 +10,11 @@
   const TYPES = ["relay", "kehai", "silence", "ack", "err", "maneki", "kotodama"];
   const CMDS  = ["play", "stop", "setParam", "ramp", "loadPreset", "snapshot"];
   const LITURGY_OPS = [">", "<", ">=", "<="];
-  const RESERVED_TARGETS = ["MUSUBI", "nagare"];
-  const MUSIC_MODES = ["凪", "琉球", "平調子", "陰旋", "アイヌ", "シベリア", "モンゴル", "スレンドロ", "ペログ", "マカーム", "バイラヴィ", "無"];
-  const MUSIC_KEYS = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
-  const MUSIC_POLICIES = ["immediate", "phrase-aligned", "section-aligned", "voice-led"];
 
   function isString(x) { return typeof x === "string" && x.length > 0; }
   function isNumber(x) { return typeof x === "number" && isFinite(x); }
   function isBool(x)   { return typeof x === "boolean"; }
   function isObj(x)    { return x && typeof x === "object" && !Array.isArray(x); }
-  function isReservedTarget(x) { return isString(x) && RESERVED_TARGETS.indexOf(x) >= 0; }
-  function isMusicKey(x) {
-    return (isNumber(x) && x >= 0 && x <= 11) || (isString(x) && MUSIC_KEYS.indexOf(x) >= 0);
-  }
 
   function nowMs() {
     return Date.now();
@@ -58,7 +50,9 @@
     return hasCommon(m) && m.t === "kehai"
       && isString(m.from)
       && isNumber(m.presence) && isNumber(m.low) && isNumber(m.high)
-      && isBool(m.everSpoke);
+      // everSpoke は従来楽器のみ（任意）。§7.6 acoustic node は role/playing を持ち everSpoke を持たない。
+      && (m.everSpoke === undefined || isBool(m.everSpoke))
+      && (m.role === undefined || isString(m.role));
   }
 
   function isSilence(m) {
@@ -118,36 +112,11 @@
     }
     if (!Array.isArray(o["祭次"])) errs.push("祭次 が array で無い");
     if (!Array.isArray(o["応答"])) errs.push("応答 が array で無い");
-    if (o["音楽"] !== undefined && !isObj(o["音楽"])) errs.push("音楽 が object で無い");
     if (errs.length) return errs;
-
-    if (o["音楽"]) {
-      const music = o["音楽"];
-      if (music.key !== undefined && !isMusicKey(music.key)) errs.push("音楽.key は 0..11 または音名で無い");
-      if (music.mode !== undefined && (!isString(music.mode) || MUSIC_MODES.indexOf(music.mode) < 0)) errs.push("音楽.mode が不正");
-      if (music.bpm !== undefined && (!isNumber(music.bpm) || music.bpm < 40 || music.bpm > 180)) errs.push("音楽.bpm が 40..180 の数で無い");
-      if (music.register !== undefined && (!isNumber(music.register) || music.register < -1 || music.register > 1)) errs.push("音楽.register が -1..1 の数で無い");
-      if (music["転調策"] !== undefined && !Array.isArray(music["転調策"])) errs.push("音楽.転調策 が array で無い");
-      if (Array.isArray(music["転調策"])) {
-        music["転調策"].forEach(function (entry, i) {
-          if (!isObj(entry)) {
-            errs.push("音楽.転調策[" + i + "] が object で無い");
-            return;
-          }
-          if (!isNumber(entry["時"]) || entry["時"] < 0) errs.push("音楽.転調策[" + i + "].時 が 0 以上の数で無い");
-          if (entry.key !== undefined && !isMusicKey(entry.key)) errs.push("音楽.転調策[" + i + "].key が不正");
-          if (entry.mode !== undefined && (!isString(entry.mode) || MUSIC_MODES.indexOf(entry.mode) < 0)) errs.push("音楽.転調策[" + i + "].mode が不正");
-          if (entry.bpm !== undefined && (!isNumber(entry.bpm) || entry.bpm < 40 || entry.bpm > 180)) errs.push("音楽.転調策[" + i + "].bpm が 40..180 の数で無い");
-          if (entry.register !== undefined && (!isNumber(entry.register) || entry.register < -1 || entry.register > 1)) errs.push("音楽.転調策[" + i + "].register が -1..1 の数で無い");
-          if (entry.policy !== undefined && (!isString(entry.policy) || MUSIC_POLICIES.indexOf(entry.policy) < 0)) errs.push("音楽.転調策[" + i + "].policy が不正");
-          if (entry.duration !== undefined && (!isNumber(entry.duration) || entry.duration < 0)) errs.push("音楽.転調策[" + i + "].duration が 0 以上の数で無い");
-        });
-      }
-    }
 
     const ids = o["楽器"];
     const hasTarget = function (target) {
-      return isReservedTarget(target) || (isString(target) && ids.indexOf(target) >= 0);
+      return isString(target) && ids.indexOf(target) >= 0;
     };
 
     o["祭次"].forEach(function (seq, i) {
@@ -157,7 +126,7 @@
       }
       if (!isNumber(seq["時"]) || seq["時"] < 0) errs.push("祭次[" + i + "].時 が 0 以上の数で無い");
       if (!isNumber(seq["揺"]) || seq["揺"] < 0) errs.push("祭次[" + i + "].揺 が 0 以上の数で無い");
-      if (!hasTarget(seq["target"])) errs.push("祭次[" + i + "].target が 楽器 または予約 target に無い");
+      if (!hasTarget(seq["target"])) errs.push("祭次[" + i + "].target が 楽器 に無い");
       if (!isString(seq["command"]) || CMDS.indexOf(seq["command"]) < 0) {
         errs.push("祭次[" + i + "].command が不正");
         return;
@@ -208,7 +177,7 @@
       if (!isObj(act)) {
         errs.push("応答[" + i + "].為 が object で無い");
       } else {
-        if (!hasTarget(act["target"])) errs.push("応答[" + i + "].為.target が 楽器 または予約 target に無い");
+        if (!hasTarget(act["target"])) errs.push("応答[" + i + "].為.target が 楽器 に無い");
         if (!isString(act["command"]) || CMDS.indexOf(act["command"]) < 0) {
           errs.push("応答[" + i + "].為.command が不正");
         } else {
@@ -253,10 +222,10 @@
   }
 
   const API = {
-    TYPES, CMDS, LITURGY_OPS, RESERVED_TARGETS, MUSIC_MODES, MUSIC_KEYS, MUSIC_POLICIES,
+    TYPES, CMDS, LITURGY_OPS,
     nowMs, newRelayId,
     isRelay, isKehai, isSilence, isAck, isErr, isManeki, isKotodama, isValid,
-    isReservedTarget, isMusicKey, isLiturgy, explainLiturgy,
+    isLiturgy, explainLiturgy,
   };
 
   if (typeof module !== "undefined" && module.exports) {
