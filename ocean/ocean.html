@@ -39,6 +39,14 @@ body{background:var(--void);color:var(--text);
   font-size:10.5px;line-height:1.85;letter-spacing:.06em;pointer-events:none}
 .physh b{color:var(--text);font-weight:400}
 
+.mutlog{position:absolute;right:20px;top:18px;width:46%;max-width:520px;
+  max-height:44%;overflow-y:auto;font-size:9.5px;line-height:1.75;
+  letter-spacing:.02em;color:var(--dim);text-align:left}
+.mutlog .hop{color:var(--text);opacity:.82}
+.mutlog .sub{opacity:.6;padding-left:2px}
+.mutlog .ev{color:var(--pulse);opacity:.75;padding-top:3px}
+.mutlog .dimmed{opacity:.45}
+
 .right{width:38%;min-width:360px;max-width:480px;
   display:flex;flex-direction:column;overflow-y:auto}
 .panel{border-bottom:1px solid var(--line)}
@@ -81,9 +89,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:9px;
     <section class="left">
       <div class="physh" id="physh">海は隠れない</div>
       <canvas id="scope"></canvas>
+      <div id="mutlog" class="mutlog"></div>
       <div class="transport">
         <button id="run"  class="t">演 奏</button>
         <button id="halt" class="t ghost">鎮 め</button>
+        <button id="dllog" class="t ghost" title="同じ航海を再現できる JSON">航 海 ログ</button>
       </div>
     </section>
 
@@ -116,6 +126,84 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:9px;
             <span class="k">転調速</span>
             <input type="range" id="drift" min="0" max="200" value="60">
             <span class="val" id="driftV">60</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">和 音 ─ 一 声 を 何 本 で 鳴 ら す か</div>
+        <div class="body">
+          <div class="row">
+            <span class="k">本数</span>
+            <input type="range" id="chordSize" min="1" max="4" value="3">
+            <span class="val" id="chordSizeV">3</span>
+          </div>
+          <div class="row">
+            <span class="k">深海</span>
+            <select id="chordShape_ds"></select>
+          </div>
+          <div class="row">
+            <span class="k">沖</span>
+            <select id="chordShape_oki"></select>
+          </div>
+          <div class="row">
+            <span class="k">海岸</span>
+            <select id="chordShape_kg"></select>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">航 路 ─ 潮 が 音 階 を 運 ぶ</div>
+        <div class="body">
+          <div class="row">
+            <span class="k">航路</span>
+            <select id="routeSel"></select>
+          </div>
+          <div class="row">
+            <label class="von"><input type="checkbox" id="voyage"> 航 海</label>
+          </div>
+          <div class="row">
+            <span class="k">時間圧縮</span>
+            <input type="range" id="timeScale" min="25" max="400" value="100">
+            <span class="val" id="timeScaleV">100</span>
+          </div>
+          <div class="row">
+            <span class="k">変異</span>
+            <input type="range" id="mutation" min="0" max="100" value="40">
+            <span class="val" id="mutationV">40</span>
+          </div>
+          <div class="row">
+            <span class="k">層間遅延</span>
+            <input type="range" id="lag" min="0" max="40" value="8">
+            <span class="val" id="lagV">8</span>
+          </div>
+          <div class="row">
+            <span class="k">均質化</span>
+            <input type="range" id="homogenize" min="0" max="100" value="0">
+            <span class="val" id="homogenizeV">0</span>
+          </div>
+          <div class="row">
+            <span class="k" style="min-width:auto">航海</span>
+            <span class="val" id="voyReadout" style="min-width:auto;text-align:left;color:var(--dim)">─</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">潮 汐 ─ 分 潮 の 重 ね 合 わ せ</div>
+        <div class="body">
+          <div class="row">
+            <span class="k">潮の効き</span>
+            <input type="range" id="tideAmp" min="0" max="100" value="60">
+            <span class="val" id="tideAmpV">60</span>
+          </div>
+          <div class="row">
+            <label class="von"><input type="checkbox" id="tideRealtime"> 実 時 間（月 齢 に 同 期）</label>
+          </div>
+          <div class="row">
+            <span class="k" style="min-width:auto">潮位</span>
+            <span class="val" id="tideReadout" style="min-width:auto;text-align:left;color:var(--dim)">─</span>
           </div>
         </div>
       </div>
@@ -169,6 +257,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:9px;
   </main>
 </div>
 
+<!-- データ層：音階・ノード・航路・分潮定数。処理は下の script 側 -->
+<script src="ocean-data.js"></script>
+
 <!-- 葉：場と繋ぐための三本。読み込めない／繋がない時は下の fallback で単体動作 -->
 <script src="shared/el-systema-shapes.js"></script>
 <script src="shared/el-systema-transport.js"></script>
@@ -179,6 +270,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:9px;
 (function(){
 "use strict";
 var FIELD_ON = /[?&#]field/.test(location.href);
+var DEBUG    = /[?&#]debug/.test(location.href);
 var oceanClock = null;
 
 // 場と繋がない単体動作のための fallback
@@ -186,92 +278,315 @@ if(typeof window.registerElSystemaInstrument !== "function"){
   window.registerElSystemaInstrument = function(){};
 }
 
-/* ── 音階：民族（半音オフセット）─────────────────────
-   潮流が文化を運び、文化が音階を残した ─ という前提で
-   世界の民族音階と物理スケールを混在させる。              */
-var SCALES_SEMI = {
-  "ペンタトニック":      [0, 2, 4, 7, 9],
-  "ヒラジョシ":          [0, 2, 3, 7, 8],
-  "インセン":            [0, 1, 5, 7, 10],
-  "都節":                [0, 1, 5, 7, 8],
-  "ラガ・バイラヴ":      [0, 1, 4, 5, 7, 8, 11],
-  "ラガ・ヤマン":        [0, 2, 4, 6, 7, 9, 11],
-  "マカーム・ラスト":    [0, 2, 3.5, 5, 7, 9, 10.5],
-  "ペロッグ":            [0, 1, 3, 7, 8],
-  "スレンドロ":          [0, 2.4, 4.8, 7.2, 9.6],
-  "ブルース":            [0, 3, 5, 6, 7, 10],
-  "ハーモニックマイナー":[0, 2, 3, 5, 7, 8, 11],
-  "ホールトーン":        [0, 2, 4, 6, 8, 10],
-  "アイヌ":              [0, 2, 4, 7, 9, 11],
+/* ── 追跡可能性：seed 付き PRNG（mulberry32）────────────
+   設計原則1。音楽的決定（発火確率・タイミング・音高・パン・うねり周期・
+   変異）は必ずここを通す。ノイズ波形そのものの生成だけは Math.random 可。
+
+   カウンタ方式にしてある：rngFor(名前, 添字) は seed と名前と添字だけから
+   決まるので、途中の tick が1つ落ちても他の系列は狂わない。航海ログは
+   (航路, ホップ番号) を添字にするため、時計のゆらぎに依存せず完全一致する。 */
+function hashStr(s){
+  var h = 2166136261 >>> 0;
+  for(var i=0; i<s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function mulberry32(a){
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    var t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function rngFor(name, index){
+  return mulberry32(hashStr(String(P.seed) + "/" + name + "/" + String(index)) | 0);
+}
+// 範囲つきの引き（読みやすさのため）
+function rr(R, lo, hi){ return lo + R() * (hi - lo); }
+function ri(R, n){ return Math.floor(R() * n); }
+
+/* ── 出来事ログ（追跡可能性）──────────────────────
+   Phase E で地図・ルーラーと繋ぐ。?debug で console にも出す。        */
+var EVLOG = {
+  max: 600, entries: [], seq: 0,
+  push: function(type, data){
+    var e = { i: this.seq++, type: type, data: data };
+    this.entries.push(e);
+    if(this.entries.length > this.max) this.entries.shift();
+    if(DEBUG) console.log("[ocean]", e.i, type, JSON.stringify(data));
+    return e;
+  },
+  clear: function(){ this.entries.length = 0; this.seq = 0; }
 };
 
-var SCALE_NAMES = Object.keys(SCALES_SEMI).concat(
-  ["倍音列", "純正律", "黄金比律", "ピタゴラス律", "フィボナッチ"]
-);
+/* ── 音階：cents を唯一の内部表現とする ────────────────
+   設計原則2。12平均律は「可動音が 100 の倍数に並んだ一例」にすぎない。
+   データは ocean-data.js（window.OCEAN_DATA）。読み込めない時は
+   最小限の内蔵表で単体動作する（器が死なないための保険）。            */
+var DATA = window.OCEAN_DATA || {
+  constants: { justFourthCents: 1200*Math.log2(4/3), justFifthCents: 1200*Math.log2(3/2) },
+  tetrachords: {},
+  scales: [
+    { name:"ペンタトニック", mode:"octave", cents:[0,200,400,700,900], frame:null, tetra:null },
+    { name:"ヒラジョシ",    mode:"octave", cents:[0,200,300,700,800], frame:null, tetra:null },
+    { name:"琉球音階",      mode:"octave", cents:[0,400,500,700,1100], frame:500, upperCore:700,
+      tetra:{ lower:{inner:[400]}, upper:{inner:[400]} } }
+  ],
+  nodes: [], routes: [], tide: { constituents: [] },
+  _fallback: true
+};
 
-// 音階名 → n 個の周波数比（root を 1 とする倍率）
+var SCALE_BY_NAME = {};
+DATA.scales.forEach(function(s){ SCALE_BY_NAME[s.name] = s; });
+var SCALE_NAMES = DATA.scales.map(function(s){ return s.name; });
+
+// 音階名に付く記号（′=変異後 / ≈=混合）を一度落とす。付け直すときに積もらせない。
+function baseScaleName(name){
+  return String(name || "").replace(/[′≈]+$/, "");
+}
+
+function getScale(scale){
+  if(scale && typeof scale === "object") return scale;
+  return SCALE_BY_NAME[scale] || DATA.scales[0];
+}
+
+// degree（0 起点の声番号）→ 基音からの cents。オクターブを跨いで伸びる。
+function centsAt(scale, degree){
+  var s = getScale(scale);
+  var i = Math.max(0, Math.round(degree));
+  if(s.mode === "gen"){
+    var g = s.gen || {};
+    if(g.kind === "harmonic")     return 1200 * Math.log2(i + 1);
+    if(g.kind === "ratio-power")  return 1200 * Math.log2(Math.pow(g.ratio, i * g.exponentStep));
+    return 0;
+  }
+  if(s.mode === "abs"){
+    var arr = s.cents || [0];
+    return arr[Math.min(i, arr.length - 1)];   // 末尾で飽和
+  }
+  var c = s.cents || [0], L = c.length;
+  return c[i % L] + 1200 * Math.floor(i / L);
+}
+
+// 1オクターブ内に折り返した cents 配列（ルーラー表示・混交の比較用）
+function scaleCents(scale){
+  var s = getScale(scale);
+  if(s.mode === "octave") return (s.cents || [0]).slice();
+  var out = [], seen = {};
+  for(var i=0; i<32; i++){
+    var v = centsAt(s, i);
+    var m = ((v % 1200) + 1200) % 1200;
+    var k = m.toFixed(3);
+    if(!seen[k]){ seen[k] = 1; out.push(m); }
+    if(out.length >= 24) break;
+  }
+  return out.sort(function(a,b){ return a - b; });
+}
+
+function centsToFreq(rootHz, cents, octaveIdx){
+  return rootHz * Math.pow(2, (cents + 1200 * (octaveIdx || 0)) / 1200);
+}
+
+// 後方互換：root を 1 とする倍率配列（旧 scaleFreqs と同一の音高を返す）
 function scaleFreqs(name, n){
-  if(name === "倍音列"){
-    var a = [];
-    for(var i=1; i<=n; i++) a.push(i);
-    return a;
-  }
-  if(name === "純正律"){
-    var ratios = [1, 9/8, 5/4, 4/3, 3/2, 5/3, 15/8];
-    var a = [];
-    for(var i=0; i<n; i++){
-      var d = i % ratios.length;
-      var oct = Math.floor(i / ratios.length);
-      a.push(ratios[d] * Math.pow(2, oct));
-    }
-    return a;
-  }
-  if(name === "黄金比律"){
-    var phi = (1+Math.sqrt(5))/2;
-    var a = [];
-    for(var i=0; i<n; i++) a.push(Math.pow(phi, i*0.45));
-    return a;
-  }
-  if(name === "ピタゴラス律"){
-    var f = 1, raw = [];
-    for(var i=0; i<12; i++){
-      raw.push(f);
-      f *= 1.5;
-      while(f >= 2) f /= 2;
-    }
-    raw.sort(function(x,y){ return x - y; });
-    var a = [];
-    for(var i=0; i<n; i++){
-      var d = i % raw.length;
-      var oct = Math.floor(i / raw.length);
-      a.push(raw[d] * Math.pow(2, oct));
-    }
-    return a;
-  }
-  if(name === "フィボナッチ"){
-    var fib = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377];
-    var base = fib[2];
-    var a = [];
-    for(var i=0; i<n; i++) a.push(fib[Math.min(i+2, fib.length-1)] / base);
-    return a;
-  }
-  var st = SCALES_SEMI[name] || [0, 4, 7];
   var a = [];
-  for(var i=0; i<n; i++){
-    var d = i % st.length;
-    var oct = Math.floor(i / st.length);
-    a.push(Math.pow(2, (st[d] + 12*oct) / 12));
-  }
+  for(var i=0; i<n; i++) a.push(Math.pow(2, centsAt(name, i) / 1200));
   return a;
+}
+
+/* ── 核音と可動音 ──────────────────────────────────
+   核音 = 0 / frame(完全4度) / upperCore(完全5度) / 1200。動きにくい。
+   可動音 = テトラコルドの inner。ここが変異し混交する。               */
+function coreCentsOf(scale){
+  var s = getScale(scale), out = [0, 1200];
+  if(s.frame != null) out.push(s.frame);
+  if(s.upperCore != null) out.push(s.upperCore);
+  return out.sort(function(a,b){ return a-b; });
+}
+function isCoreCents(scale, cents, tol){
+  var t = (tol == null) ? 8 : tol;
+  var m = ((cents % 1200) + 1200) % 1200;
+  return coreCentsOf(scale).some(function(c){
+    var d = Math.abs(m - c);
+    return Math.min(d, 1200 - d) <= t;   // 1200 と 0 は同じ核音
+  });
+}
+
+// テトラコルドから1オクターブ分の cents を組み立てる（骨格＋肉）
+function buildFromTetra(tetra, frame, upperCore){
+  var f = (frame == null) ? 500 : frame;
+  var u = (upperCore == null) ? 700 : upperCore;
+  var out = [0];
+  (tetra.lower && tetra.lower.inner || []).forEach(function(c){ out.push(c); });
+  out.push(f);
+  (tetra.extra || []).forEach(function(c){ out.push(c); });
+  out.push(u);
+  (tetra.upper && tetra.upper.inner || []).forEach(function(c){ out.push(u + c); });
+  return out.filter(function(c){ return c >= 0 && c < 1200; })
+            .sort(function(a,b){ return a-b; })
+            .filter(function(c,i,arr){ return i===0 || c - arr[i-1] > 0.5; });
+}
+
+/* morphScale(a, b, t) → 中間音を cents 上で補間した音階。核音は保持。
+   音数が違う場合は「脱落／付加」イベントとして扱い、events に残す。
+   t=0 で a、t=1 で b。                                                  */
+function morphScale(a, b, t, label){
+  var A = getScale(a), B = getScale(b);
+  var tt = Math.max(0, Math.min(1, t));
+  var events = [];
+  var lerp = function(x, y){ return x + (y - x) * tt; };
+
+  function innerMorph(side){
+    var ia = (A.tetra && A.tetra[side] && A.tetra[side].inner) || [];
+    var ib = (B.tetra && B.tetra[side] && B.tetra[side].inner) || [];
+    var n = Math.min(ia.length, ib.length);
+    var out = [];
+    for(var i=0; i<n; i++) out.push(lerp(ia[i], ib[i]));
+    // 音数差＝脱落／付加。t が 0.5 を越えた側の音数に従う
+    if(ia.length !== ib.length){
+      var longer = (ia.length > ib.length) ? ia : ib;
+      var fromA  = (ia.length > ib.length);
+      var keep   = fromA ? (tt < 0.5) : (tt >= 0.5);
+      for(var j=n; j<longer.length; j++){
+        if(keep) out.push(longer[j]);
+        events.push({ kind: fromA ? "drop" : "add", side: side, cents: Math.round(longer[j]*10)/10, applied: fromA ? !keep : keep });
+      }
+    }
+    return out.sort(function(x,y){ return x-y; });
+  }
+
+  // 両方がテトラコルド分解できる時＝骨格を保存したまま肉を動かす
+  if(A.tetra && typeof A.tetra === "object" && B.tetra && typeof B.tetra === "object"){
+    var frame = lerp(A.frame != null ? A.frame : 500, B.frame != null ? B.frame : 500);
+    var upper = lerp(A.upperCore != null ? A.upperCore : 700, B.upperCore != null ? B.upperCore : 700);
+    var tetra = { lower: { inner: innerMorph("lower") }, upper: { inner: innerMorph("upper") } };
+    var exA = (A.tetra.extra || []), exB = (B.tetra.extra || []);
+    if(exA.length || exB.length){
+      var nx = Math.min(exA.length, exB.length), ex = [];
+      for(var k=0; k<nx; k++) ex.push(lerp(exA[k], exB[k]));
+      if(exA.length !== exB.length){
+        var lg = exA.length > exB.length ? exA : exB, fa = exA.length > exB.length;
+        var kp = fa ? (tt < 0.5) : (tt >= 0.5);
+        for(var m=nx; m<lg.length; m++){
+          if(kp) ex.push(lg[m]);
+          events.push({ kind: fa ? "drop" : "add", side: "extra", cents: Math.round(lg[m]*10)/10, applied: fa ? !kp : kp });
+        }
+      }
+      tetra.extra = ex;
+    }
+    return {
+      name: (label || (A.name + "→" + B.name)), mode: "octave",
+      cents: buildFromTetra(tetra, frame, upper),
+      frame: frame, upperCore: upper, join: A.join || B.join || "disjunct",
+      tetra: tetra, morph: { from: A.name, to: B.name, t: tt }, events: events,
+      note: "morphScale による中間音階。核音枠 " + frame.toFixed(1) + "c。"
+    };
+  }
+
+  // 片側だけがテトラコルド分解できる場合＝骨格は保存し、可動音だけを相手へ寄せる。
+  // （両方を degree 補間にすると、枠外音階が一度混ざった時点で以降ずっと骨格を
+  //   失ってしまい「骨格は保存、肉は変異」が成り立たなくなる。）
+  var aHas = !!(A.tetra && typeof A.tetra === "object");
+  var bHas = !!(B.tetra && typeof B.tetra === "object");
+  if(aHas !== bHas){
+    var SK = aHas ? A : B;                       // 骨格を持つ側
+    var OT = aHas ? B : A;                       // 枠外の側
+    var tt2 = aHas ? tt : (1 - tt);              // 骨格側の可動音が相手へ寄る度合い
+    var frameS = (SK.frame != null) ? SK.frame : 500;
+    var upperS = (SK.upperCore != null) ? SK.upperCore : 700;
+    var otherC = scaleCents(OT);
+    // 可動音 c を、相手の音階の中で最も近い音へ寄せる
+    var pull = function(c, lo, hi){
+      var best = c, bd = Infinity;
+      for(var i=0; i<otherC.length; i++){
+        var oc = otherC[i];
+        if(oc <= lo + 1 || oc >= hi - 1) continue;
+        var d = Math.abs(oc - c);
+        if(d < bd){ bd = d; best = oc; }
+      }
+      // tt2 = 「相手へ寄る度合い」。骨格側が A なら tt、B なら 1-tt。
+      var nv = c + (best - c) * tt2;
+      if(Math.abs(best - c) > 0.5)
+        events.push({ kind:"pull", side:"inner", from:Math.round(c*10)/10,
+                      to:Math.round(nv*10)/10, target:Math.round(best*10)/10 });
+      return Math.max(lo + 10, Math.min(hi - 10, nv));
+    };
+    var tetS = {
+      lower: { inner: ((SK.tetra.lower && SK.tetra.lower.inner) || []).map(function(c){ return pull(c, 0, frameS); }) },
+      upper: { inner: ((SK.tetra.upper && SK.tetra.upper.inner) || []).map(function(c){
+                 return pull(c + upperS, upperS, 1200) - upperS; }) }
+    };
+    if(SK.tetra.extra) tetS.extra = SK.tetra.extra.map(function(c){ return pull(c, frameS, upperS); });
+    return {
+      name: (label || (baseScaleName(A.name) + "≈")), mode:"octave",
+      cents: buildFromTetra(tetS, frameS, upperS),
+      frame: frameS, upperCore: upperS, join: SK.join || "disjunct", tetra: tetS,
+      morph: { from: A.name, to: B.name, t: tt }, events: events,
+      note: "片側が枠外のため、骨格（核音枠 " + frameS.toFixed(1) + "c）を保ったまま可動音を寄せた。"
+    };
+  }
+
+  // 両方とも枠外＝degree ごとに cents を直接補間する
+  var ca = scaleCents(A), cb = scaleCents(B);
+  var n2 = Math.min(ca.length, cb.length), out2 = [];
+  for(var i2=0; i2<n2; i2++) out2.push(lerp(ca[i2], cb[i2]));
+  if(ca.length !== cb.length){
+    var lgr = ca.length > cb.length ? ca : cb, fromA2 = ca.length > cb.length;
+    var keep2 = fromA2 ? (tt < 0.5) : (tt >= 0.5);
+    for(var j2=n2; j2<lgr.length; j2++){
+      if(keep2) out2.push(lgr[j2]);
+      events.push({ kind: fromA2 ? "drop" : "add", side: "degree", cents: Math.round(lgr[j2]*10)/10, applied: fromA2 ? !keep2 : keep2 });
+    }
+  }
+  return {
+    name: (label || (A.name + "→" + B.name)), mode: "octave",
+    cents: out2.sort(function(x,y){ return x-y; }),
+    frame: null, upperCore: null, tetra: null,
+    morph: { from: A.name, to: B.name, t: tt }, events: events,
+    note: "枠外音階を含むため degree 単位で cents を補間した。"
+  };
 }
 
 /* ── 潮流 ─ 有機パンニング（時間関数）────────────────
    各潮流は固有のパン軌跡。深さで振幅を絞る。               */
 var CURRENT_NAMES = ["黒潮", "親潮", "湾流", "赤潮", "環流", "潮目"];
 
+/* 航路ごとのパン軌跡。航海中は現在地の経度で東西の位置に寄せる
+   （地図の左右と音像の左右が一致する）。                              */
+function routePan(panFn, t, d){
+  var base;
+  switch(panFn){
+    case "kuroshio": base = Math.sin(t * 0.13) * 0.60; break;
+    case "tsushima": base = (Math.sin(t * 0.17) * 0.45 + Math.sin(t * 0.06) * 0.30); break;
+    case "oyashio":  base = (Math.sin(t * 0.42) * 0.55 + Math.sin(t * 0.11) * 0.30); break;
+    case "monsoon":  base = Math.sin(t * 0.05) * 0.85 * seasonDir(); break;   // 季節で左右が入れ替わる
+    case "spread":   base = Math.sin(t * 0.09) * 0.50 + Math.sin(t * 0.23) * 0.30; break;
+    case "gyre":     base = Math.cos(t * 0.18) * 0.65; break;
+    case "shiome":   base = (Math.sin(t * 0.5) * 0.45 + Math.sin(t * 0.71) * 0.35); break;
+    case "akashio":  base = Math.sin(t * 0.04) * 0.22; break;
+    default:         base = 0;
+  }
+  // 現在地の経度を航路の経度範囲に正規化して -1..1 に写す
+  var pos = VOY.active ? voyagePosition() : null;
+  if(pos && VOY.plan && VOY.plan.path){
+    var lons = VOY.plan.path.map(function(id){ return NODE_BY_ID[id] ? NODE_BY_ID[id].lon : 0; });
+    var lo0 = Math.min.apply(null, lons), lo1 = Math.max.apply(null, lons);
+    if(lo1 - lo0 > 0.5){
+      var geo = ((pos.lon - lo0) / (lo1 - lo0)) * 2 - 1;
+      base = base * 0.45 + geo * 0.55;      // 軌跡と地理を半々で混ぜる
+    }
+  }
+  return base * d;
+}
+
 function currentPan(t){
   var c = P.current;
   var d = P.currentDepth / 100;
+  // 航路を選んでいて、潮流を手で触っていなければ航路の panFn を使う
+  if(P.currentAuto && P.route !== "fixed"){
+    var r = ROUTE_BY_ID[P.route];
+    if(r && r.panFn) return routePan(r.panFn, t, d);
+  }
   if(c === "黒潮")  return Math.sin(t * 0.13) * 0.60 * d;
   if(c === "親潮")  return (Math.sin(t * 0.42) * 0.55 + Math.sin(t * 0.11) * 0.30) * d;
   if(c === "湾流")  return Math.sin(t * 0.08) * 0.88 * d;
@@ -305,7 +620,7 @@ function weatherProfile(){
 }
 
 /* ── 状態 ────────────────────────────────────────── */
-var ac=null, master=null, masterPan=null, ann=null, abuf=null;
+var ac=null, master=null, masterPan=null, limiter=null, softclip=null, ann=null, abuf=null;
 var running=false, schedTimer=null, t0=0;
 
 var P = {
@@ -317,6 +632,28 @@ var P = {
   rain: 0,                         // 雨の強度（持続するノイズ層）0-100
   thunder: 0,                      // 雷の頻度 0-100
   drift: 60,                       // 音階内ドリフトの倍率（0-200）
+  currentAuto: true,               // true=航路の panFn を自動適用／false=潮流セレクタで上書き
+  seed: 20260910,                  // 追跡可能性：音楽的決定の乱数種（preset に保存される）
+
+  // 和音化：各 voice を K 本の sine の和音にする（1〜4）
+  chordSize: 3,
+  // 積み方（層ごと）：cores=核音和音 / stack=音階内堆積 / cluster=隣接クラスタ / harmonic=倍音
+  chordShape: { ds:"cores", oki:"stack", kg:"cluster" },
+
+  // 航路と伝播（設計 C）。route="fixed" なら従来通り P.scale を三層で共有する。
+  route: "fixed",
+  voyage: false,                   // 航海の ON/OFF
+  timeScale: 100,                  // 時間圧縮（%）。100 で「1日 = 6 秒」
+  retention: { ds:0.8, oki:0.5, kg:0.2 },   // 旧音階が残る割合
+  lag: 8,                          // 層間の遅延（秒）。kg → oki → ds
+  mixMode: { ds:"replace", oki:"morph", kg:"replace" },
+  mutation: 40,                    // 変異量 0-100
+  mutationCents: 40,               // 中間音シフトの最大値（cents）
+  homogenize: 0,                   // 赤潮の均質化圧（Phase 7 で使う）
+
+  // 潮汐（設計 D）。tideAmp=0 なら潮汐の影響は完全に切れる（Phase 4 と同じ動き）
+  tideAmp: 60,                     // 潮汐の効き 0-100
+  tideRealtime: false,             // 実時間モード：月齢で大潮/小潮だけ実世界に同期
 
   // 三つのオシレータセクション
   // octave は基音への乗数（0.25=2 オクターブ下、4.0=2 オクターブ上）
@@ -333,15 +670,45 @@ var P = {
   },
 };
 
+// 既定値のスナップショット。preset に無いキーは「現在値」ではなく
+// 「既定値」に戻す（そうしないと旧 preset を読んでも従来動作にならない）。
+var P_DEFAULTS = JSON.parse(JSON.stringify(P));
+
 /* ── オシレータセクション（連続発音）─────────────── */
 var OCS = { ds:null, oki:null, kg:null };
+
+// partial は常にこの本数だけ作り、chordSize を超える分は gain 0 で待機させる。
+var MAX_PARTIALS = 4;
+
+// 乱数系列の添字。演奏開始で 0 に戻るので「同一 seed・同一操作」で再現する。
+var TICK = { ripples:0, current:0, drift:0 };
+var DRIFTN = { ds:0, oki:0, kg:0 };
 
 // 一セクション分のオシレータ群を生成。
 // 各声は sine + slow amp LFO + slow detune LFO の三本立て。
 // colorCfg で「海の色付け」フィルタを挿入：
 //   深海はローパスで暗く、沖は中域を緩く揺らし、海岸はハイパスで開かす。
-function setupOcs(voiceCount, panSpread, colorCfg){
+function setupOcs(voiceCount, panSpread, colorCfg, ocsName){
   var section = { out: ac.createGain(), voices: [], _nextRotate: 0 };
+
+  // 浅海の非線形（海岸層のみ）：voices → [dry + tanh] → color → out
+  // M4（M2 の倍潮）は浅海の非線形から生じるので、浅瀬に対応する海岸層だけ歪ませる。
+  if(colorCfg.nonlinear){
+    section.shaperIn  = ac.createGain();
+    section.shaper    = ac.createWaveShaper();
+    // 小信号での利得を 1 に正規化した tanh。正規化しないと歪みではなく
+    // 「音量が上がる」だけになってしまう（tanh(2.2x)/tanh(2.2) は原点の傾きが 2.25）。
+    var nc = new Float32Array(1024);
+    var kk = 2.2, slope = kk / Math.tanh(kk);
+    for(var si=0; si<1024; si++){
+      var x = si/512 - 1;
+      nc[si] = (Math.tanh(x * kk) / Math.tanh(kk)) / slope;
+    }
+    section.shaper.curve = nc;
+    section.shaperMix = ac.createGain(); section.shaperMix.gain.value = 0;
+    section.shaperIn.connect(section.shaper);
+    section.shaper.connect(section.shaperMix);
+  }
 
   // 色付けフィルタ（voices → color → out）
   section.color = ac.createBiquadFilter();
@@ -350,6 +717,7 @@ function setupOcs(voiceCount, panSpread, colorCfg){
   section.color.Q.value = (colorCfg.Q != null) ? colorCfg.Q : 0.7;
   if(colorCfg.gain != null) section.color.gain.value = colorCfg.gain;
   section.color.connect(section.out);
+  if(section.shaperMix) section.shaperMix.connect(section.color);
 
   // 緩い LFO で filter frequency を sweep（水の揺れ）
   if(colorCfg.lfoHz){
@@ -363,15 +731,18 @@ function setupOcs(voiceCount, panSpread, colorCfg){
   }
 
   for(var i=0; i<voiceCount; i++){
-    var v = {};
-    v.osc = ac.createOscillator(); v.osc.type = "sine";
+    var v = { degree: i, parts: [] };
+    // この声だけの乱数列。seed と (層, 声番号) で決まるので毎回同じ値になる。
+    var VR = rngFor("voice", (ocsName || "?") + ":" + i);
+
+    // voice 内で共有するもの：amp LFO ／ gain ／ pan
     v.gain = ac.createGain(); v.gain.gain.value = 0;
     v.pan = ac.createStereoPanner();
     v.pan.pan.value = ((i / Math.max(1, voiceCount-1)) * 2 - 1) * panSpread;
 
     // amp LFO（うねり）
     v.lfo = ac.createOscillator(); v.lfo.type = "sine";
-    v.lfo.frequency.value = 0.04 + Math.random() * 0.10;
+    v.lfo.frequency.value = swellHzFor(i);     // 分潮 (i mod 6) の周期比
     v.lfoGain = ac.createGain(); v.lfoGain.gain.value = 0.30;
 
     // base ゲインの定数源（0.5 を中心に LFO が揺らす）
@@ -379,15 +750,40 @@ function setupOcs(voiceCount, panSpread, colorCfg){
     v.base.connect(v.gain.gain);
     v.lfo.connect(v.lfoGain); v.lfoGain.connect(v.gain.gain);
 
-    // detune LFO（緩いコーラス感）
-    v.det = ac.createOscillator(); v.det.type = "sine";
-    v.det.frequency.value = 0.05 + Math.random() * 0.15;
-    v.detGain = ac.createGain(); v.detGain.gain.value = 4;  // ±4 cents 程度
-    v.det.connect(v.detGain); v.detGain.connect(v.osc.detune);
+    v.gain.connect(v.pan);
+    v.pan.connect(section.color);                              // dry
+    if(section.shaperIn) v.pan.connect(section.shaperIn);      // 非線形側（mix で混ぜる）
 
-    v.osc.connect(v.gain); v.gain.connect(v.pan); v.pan.connect(section.color);
+    // partial は常に 4 本作り、未使用分は gain 0 で待機させる。
+    // こうすると chordSize を演奏中に変えてもノードを作り直さずに済む
+    // （作り直しはクリックの元になる）。
+    for(var k=0; k<MAX_PARTIALS; k++){
+      var pt = { k: k };
+      // partial 専用の乱数列。detune LFO の速さを少しずつ違えて「うなり」を作る。
+      var PR = rngFor("partial", (ocsName || "?") + ":" + i + ":" + k);
+      pt.osc = ac.createOscillator(); pt.osc.type = "sine";
+      pt.gain = ac.createGain(); pt.gain.gain.value = 0;   // applyOcsChord で 1/√K に
 
-    v.osc.start(); v.lfo.start(); v.det.start(); v.base.start();
+      // detune LFO は partial ごと（うなり用）
+      pt.det = ac.createOscillator(); pt.det.type = "sine";
+      pt.det.frequency.value = detuneHzFor(i, k);   // 分潮 (i+k mod 6) の周期比
+      pt.detGain = ac.createGain(); pt.detGain.gain.value = 4;  // ±4 cents 程度
+      pt.det.connect(pt.detGain); pt.detGain.connect(pt.osc.detune);
+
+      pt.osc.connect(pt.gain); pt.gain.connect(v.gain);
+      // 由来ノード：Phase C で航路から埋まる。今は層が持つ音階そのもの。
+      pt.origin = { node: null, scale: null };
+
+      pt.osc.start(); pt.det.start();
+      v.parts.push(pt);
+    }
+
+    // 旧コードとの互換のため、第1 partial を v.osc / v.det として見せる
+    v.osc = v.parts[0].osc;
+    v.det = v.parts[0].det;
+    v.detGain = v.parts[0].detGain;
+
+    v.lfo.start(); v.base.start();
     section.voices.push(v);
   }
   return section;
@@ -397,15 +793,70 @@ function ocsRoot(ocsName){
   return P.root * P[ocsName].octave;
 }
 
-// 一セクションの和音を音階から組み直す
-function applyOcsChord(ocsName){
-  var section = OCS[ocsName]; if(!section || !ac) return;
-  var n = section.voices.length;
-  var freqs = scaleFreqs(P.scale, n);
-  var rf = ocsRoot(ocsName);
-  for(var i=0; i<n; i++){
-    section.voices[i].osc.frequency.setTargetAtTime(rf * freqs[i], ac.currentTime, 0.6);
+/* ── 和音の積み方 ────────────────────────────────────
+   voice（音階の一音）を K 本の sine に分ける。partial ごとに
+   「由来ノード」を持てるので、一つの和音の中に旧文化と新文化の音が
+   同居しうる（Phase C で航路から埋まる）。                          */
+var CHORD_SHAPES = [
+  { id:"cores",    label:"核 音" },      // voice の音 + 完全4度 + 完全5度 + 8度
+  { id:"stack",    label:"堆 積" },      // degree i, i+2, i+4, i+6
+  { id:"cluster",  label:"ク ラ ス タ" }, // degree i, i+1, i+2, i+3
+  { id:"harmonic", label:"倍 音" }       // 比 1, 2, 3, 4
+];
+var CHORD_SHAPE_IDS = CHORD_SHAPES.map(function(c){ return c.id; });
+
+// partial k（0 起点）の cents。scale は音階名でも音階オブジェクトでもよい。
+function partialCents(shape, scale, degree, k){
+  if(shape === "cores"){
+    var CO = DATA.constants || {};
+    var off = [0, (CO.justFourthCents != null ? CO.justFourthCents : 498.045),
+                  (CO.justFifthCents  != null ? CO.justFifthCents  : 701.955), 1200];
+    return centsAt(scale, degree) + off[Math.min(k, off.length - 1)];
   }
+  if(shape === "stack")    return centsAt(scale, degree + 2 * k);
+  if(shape === "cluster")  return centsAt(scale, degree + k);
+  if(shape === "harmonic") return centsAt(scale, degree) + 1200 * Math.log2(k + 1);
+  return centsAt(scale, degree);
+}
+
+function chordSizeOf(){
+  return Math.max(1, Math.min(4, Math.round(P.chordSize)));
+}
+function chordShapeOf(ocsName){
+  var sh = (P.chordShape && P.chordShape[ocsName]) || "stack";
+  return CHORD_SHAPE_IDS.indexOf(sh) >= 0 ? sh : "stack";
+}
+
+// 一セクションの和音を音階から組み直す
+// 一声ぶんの partial を組み直す。degree は声が今担っている音階上の位置。
+// scaleOverride を渡すと、その声だけ別の音階で鳴らせる（Phase C の混交で使う）。
+function applyVoiceChord(ocsName, voiceIdx, timeConst){
+  var section = OCS[ocsName]; if(!section || !ac) return;
+  var v = section.voices[voiceIdx]; if(!v) return;
+  var K  = chordSizeOf();
+  var sh = chordShapeOf(ocsName);
+  var rf = ocsRoot(ocsName);
+  var g  = 1 / Math.sqrt(K);                  // partial あたりの正規化
+  var tc = (timeConst != null) ? timeConst : 0.6;   // 受入条件：時定数 ≥ 0.5s
+  var now = ac.currentTime;
+  for(var k=0; k<v.parts.length; k++){
+    var pt = v.parts[k];
+    var on = (k < K);
+    if(on){
+      // 由来（partial 個別）→ 層が持つ音階 → P.scale の順に解決する
+      var scale = (pt.origin && pt.origin.scale) ? pt.origin.scale : layerScaleOf(ocsName);
+      var cents = homogenizeCents(partialCents(sh, scale, v.degree, k));
+      pt.cents = cents;
+      pt.osc.frequency.setTargetAtTime(centsToFreq(rf, cents, 0), now, tc);
+    }
+    // ゲインも必ず時定数付きで動かす（chordSize 変更時のクリック防止）
+    pt.gain.gain.setTargetAtTime(on ? g : 0, now, 0.25);
+  }
+}
+
+function applyOcsChord(ocsName, timeConst){
+  var section = OCS[ocsName]; if(!section || !ac) return;
+  for(var i=0; i<section.voices.length; i++) applyVoiceChord(ocsName, i, timeConst);
 }
 function applyAllOcsChords(){
   ["ds","oki","kg"].forEach(applyOcsChord);
@@ -418,10 +869,14 @@ function applyOcsLevels(){
   ["ds","oki","kg"].forEach(function(name){
     var section = OCS[name], p = P[name];
     if(!section) return;
-    section.out.gain.value = (p.on ? 1 : 0) * (p.level / 100);
-    section.voices.forEach(function(v){
+    var mod = (name === "oki") ? VOY.mod.okiLevel : 1;   // 漂流中は沖が持ち上がる
+    if(name === "kg") mod *= tideKgLevelMul();          // 満潮で海岸が満ちる
+    section.out.gain.value = (p.on ? 1 : 0) * (p.level / 100) * mod;
+    section.voices.forEach(function(v, i){
       v.lfoGain.gain.value = w.swell * (p.swell || 1);
-      var baseHz = 0.04 + Math.random() * 0.10;
+      // 基準周期は分潮の周期比から決まる（以前は毎回 Math.random で再抽選していて、
+      // 音量を動かすだけで全層のうねり周期が変わっていた）。天候倍率だけ掛ける。
+      var baseHz = swellHzFor(i);
       v.lfo.frequency.setTargetAtTime(baseHz * (1 + w.swellHz * 3), ac.currentTime, 0.3);
     });
   });
@@ -445,17 +900,842 @@ function driftTick(){
     if(localRate <= 0.001) return;
     if(now > section._nextRotate){
       var n = section.voices.length;
-      var freqs = scaleFreqs(P.scale, n * 3);  // 三オクターブぶん
-      var voiceIdx = Math.floor(Math.random() * n);
-      var freqIdx  = Math.floor(Math.random() * (n * 3));
-      var rf = ocsRoot(name);
-      section.voices[voiceIdx].osc.frequency.setTargetAtTime(
-        rf * freqs[freqIdx], now, 1.0 + Math.random()*0.6
-      );
+      var R = rngFor("drift", name + ":" + (DRIFTN[name]++));
+      var voiceIdx = ri(R, n);
+      var degree   = ri(R, n * 3);             // 三オクターブぶんの degree
+      var v = section.voices[voiceIdx];
+      v.degree = degree;
+      applyVoiceChord(name, voiceIdx, rr(R, 1.0, 1.6));
+      // ログには seed から決まる「決定」だけを残す（実音高は層の音階＝
+      // arrive / morph-done の履歴と degree から復元できる）。
+      EVLOG.push("drift", { ocs:name, n:DRIFTN[name], voice:voiceIdx, degree:degree,
+                            shape:chordShapeOf(name), K:chordSizeOf() });
       section._nextRotate = now + 1 / Math.max(0.01, localRate);
     }
   });
 
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   航路グラフ・層間伝播・変異（設計 C）
+
+   ■ 三層＝時間の地層
+       海岸 kg  表層・到着地   新音階を最初に受け取る   保持率 0.2
+       沖   oki 移動中         海岸から lag 後          保持率 0.5
+       深海 ds  基層           沖からさらに lag 後      保持率 0.8
+     保持率 = 旧音階が残る割合。到着が重なるほど深海に過去が積層する。
+
+   ■ 混交モード
+       置換 replace … voice/partial 単位で新音階に入れ替わる（保持率＝
+                       入れ替わらない確率）。旧新が混在するヘテロフォニー。
+       補間 morph   … morphScale で中間音が cents 上を滑る。到達点は
+                       t = 1 - 保持率（保持率が高いほど旧音階に留まる）。
+
+   ■ 変異は「1ホップごとに1回」だけ引く。乱数の添字が (航路, ホップ番号)
+     なので、時計のゆらぎと無関係に **同一 seed なら航海ログが完全一致** する。
+   ═══════════════════════════════════════════════════════════════════ */
+
+var TIMECFG = DATA.time || {};
+var SECONDS_PER_DAY    = TIMECFG.secondsPerDayAt100 != null ? TIMECFG.secondsPerDayAt100 : 6.0;
+var SEASON_YEAR_SEC    = TIMECFG.seasonYearSecAt100 != null ? TIMECFG.seasonYearSecAt100 : 300;
+// 到着時、運搬音階と土地の音階を混ぜる比率（0=運搬のまま、1=土地のまま）
+var BLEND_CARRIED_NODE = 0.5;
+// 一脚の中の段階配分（停泊→出航→漂流→着岸→定着）
+var VOY_PHASES = [
+  { id:"berth",  label:"停 泊", frac:0.15 },
+  { id:"depart", label:"出 航", frac:0.10 },
+  { id:"drift",  label:"漂 流", frac:0.45 },
+  { id:"land",   label:"着 岸", frac:0.05 },
+  { id:"settle", label:"定 着", frac:0.25 }
+];
+
+var NODE_BY_ID = {}, ROUTE_BY_ID = {};
+(DATA.nodes || []).forEach(function(n){ NODE_BY_ID[n.id] = n; });
+(DATA.routes || []).forEach(function(r){ ROUTE_BY_ID[r.id] = r; });
+var ROUTE_NAMES = (DATA.routes || []).map(function(r){ return { id:r.id, name:r.name }; });
+
+function haversineKm(a, b){
+  if(!a || !b) return 0;
+  var R = 6371, p1 = a.lat * Math.PI/180, p2 = b.lat * Math.PI/180;
+  var dp = p2 - p1, dl = (b.lon - a.lon) * Math.PI/180;
+  var h = Math.sin(dp/2)*Math.sin(dp/2) + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)*Math.sin(dl/2);
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+// 航路の脚（ホップ）一覧と所要時間。timeScale は呼び出し時の値で計算する。
+function voyagePlan(routeId, reverse){
+  var r = ROUTE_BY_ID[routeId];
+  if(!r || !r.path || r.path.length < 2) return { legs: [], totalSec: 0, route: r || null, reversed: !!reverse };
+  var path = reverse ? r.path.slice().reverse() : r.path;
+  var ts = Math.max(1, P.timeScale) / 100;
+  var legs = [], total = 0;
+  for(var i=0; i<path.length-1; i++){
+    var from = NODE_BY_ID[path[i]], to = NODE_BY_ID[path[i+1]];
+    var km = haversineKm(from, to);
+    var days = (r.speed > 0) ? km / r.speed : 0;
+    var sec = days * SECONDS_PER_DAY * ts;
+    legs.push({ hop:i, from:path[i], to:path[i+1], km:km, days:days, sec:sec });
+    total += sec;
+  }
+  return { legs: legs, totalSec: total, route: r, reversed: !!reverse, path: path };
+}
+
+/* ── 季節 ──────────────────────────────────────────
+   モンスーン航路は季節風で伝播方向が反転する。夏の南西モンスーンで東へ、
+   冬の北東モンスーンで西へ。1年を SEASON_YEAR_SEC に畳む。           */
+function seasonPhase(){
+  if(!ac) return 0;
+  var yearSec = SEASON_YEAR_SEC * Math.max(1, P.timeScale) / 100;
+  var el = running ? (ac.currentTime - t0) : 0;
+  return (el % yearSec) / yearSec;             // 0..1（0=年初）
+}
+// +1 = 順路（夏・東へ）／ -1 = 逆路（冬・西へ）
+function seasonDir(){
+  return Math.sin(2 * Math.PI * seasonPhase()) >= 0 ? 1 : -1;
+}
+function seasonLabel(){
+  var ph = seasonPhase();
+  return (seasonDir() > 0) ? "夏 ・南西モンスーン（順路）" : "冬 ・北東モンスーン（逆路）";
+}
+
+/* ── 航海の状態 ────────────────────────────────────── */
+var VOY = {
+  active: false, routeId: "fixed", plan: null,
+  // legProg は 0..1 の累積進捗。実時間ではなく「潮汐ゲートを掛けた時間」で
+  // 進むので、下げ潮では伝播が止まる。lastTick は前回の tick 時刻。
+  hop: 0, legT0: 0, legProg: 0, lastTick: 0, phase: "berth", phaseIdx: 0,
+  reversed: false, branchIdx: -1, homogenizeBase: null,
+  // 各層が今持っている音階と、その由来ノード
+  layer: { ds:null, oki:null, kg:null },
+  // 層への到着予約（lag で遅らせる）
+  pending: [],
+  // 補間中の層：{ from, to, t, tTarget, t0, dur }
+  morphing: { ds:null, oki:null, kg:null },
+  mod: { okiLevel:1, chorus:1 },   // 漂流中の持ち上げ（P は書き換えない）
+  hops: 0
+};
+
+function layerScaleOf(ocsName){
+  var L = VOY.layer[ocsName];
+  return (L && L.scale) ? L.scale : P.scale;
+}
+
+// 層と partial の由来を全部消す（航路=固定に戻す＝従来動作）
+function clearLayers(){
+  ["ds","oki","kg"].forEach(function(n){
+    VOY.layer[n] = null;
+    VOY.morphing[n] = null;
+    var sec = OCS[n]; if(!sec) return;
+    sec.voices.forEach(function(v){
+      v.parts.forEach(function(pt){ pt.origin = { node:null, scale:null }; });
+    });
+  });
+  VOY.pending.length = 0;
+  VOY.mod.okiLevel = 1; VOY.mod.chorus = 1;
+}
+
+/* ── 変異（1ホップに1回）────────────────────────────
+   骨格（核音）は動きにくく、可動音が変異する。
+     ・中間音シフト   ±mutationCents（既定 40c）
+     ・音の脱落／付加（七音⇄五音）
+     ・核音枠の揺らぎ（frame 498 ± 小、低確率）                       */
+function mutateScale(scale, R, amount01, tag){
+  var S = getScale(scale);
+  var amt = Math.max(0, Math.min(1, amount01));
+  var events = [];
+  if(amt <= 0.0001) return { scale: S, events: events };
+
+  var maxShift = (P.mutationCents != null ? P.mutationCents : 40) * amt;
+
+  // テトラコルド分解できる音階＝骨格を保ったまま可動音を動かす
+  if(S.tetra && typeof S.tetra === "object"){
+    var tet = {
+      lower: { inner: ((S.tetra.lower && S.tetra.lower.inner) || []).slice() },
+      upper: { inner: ((S.tetra.upper && S.tetra.upper.inner) || []).slice() }
+    };
+    if(S.tetra.extra) tet.extra = S.tetra.extra.slice();
+    var frame = (S.frame != null) ? S.frame : 500;
+    var upper = (S.upperCore != null) ? S.upperCore : 700;
+
+    // ① 中間音シフト
+    ["lower","upper"].forEach(function(side){
+      tet[side].inner = tet[side].inner.map(function(c){
+        var d = (R() * 2 - 1) * maxShift;
+        var nv = Math.max(20, Math.min(frame - 20, c + d));
+        if(Math.abs(d) > 0.5) events.push({ kind:"shift", side:side, from:Math.round(c*10)/10,
+                                            to:Math.round(nv*10)/10, delta:Math.round(d*10)/10 });
+        return nv;
+      });
+    });
+    // 枠の外の音（ブルーノート等）は最も動きやすい
+    if(tet.extra) tet.extra = tet.extra.map(function(c){
+      var d = (R() * 2 - 1) * maxShift * 1.5;
+      var nv = Math.max(frame + 10, Math.min(upper - 10, c + d));
+      if(Math.abs(d) > 0.5) events.push({ kind:"shift", side:"extra", from:Math.round(c*10)/10,
+                                          to:Math.round(nv*10)/10, delta:Math.round(d*10)/10 });
+      return nv;
+    });
+
+    // ② 脱落／付加（七音⇄五音）
+    if(R() < 0.28 * amt){
+      var side2 = (R() < 0.5) ? "lower" : "upper";
+      var arr = tet[side2].inner;
+      if(arr.length >= 2 && R() < 0.5){
+        var di = ri(R, arr.length);
+        var dropped = arr.splice(di, 1)[0];
+        events.push({ kind:"drop", side:side2, cents:Math.round(dropped*10)/10 });
+      } else if(arr.length <= 2){
+        // 付加：既存の可動音と核音枠の隙間に一音入れる
+        var lo = arr.length ? Math.min.apply(null, arr) : 60;
+        var hi = arr.length ? Math.max.apply(null, arr) : frame - 60;
+        var nc = (lo === hi) ? Math.min(frame - 30, lo + 120) : rr(R, Math.min(lo,hi), Math.max(lo,hi));
+        if(arr.length === 1) nc = (arr[0] < frame/2) ? rr(R, arr[0] + 60, frame - 30)
+                                                     : rr(R, 40, arr[0] - 60);
+        nc = Math.max(20, Math.min(frame - 20, nc));
+        arr.push(nc);
+        events.push({ kind:"add", side:side2, cents:Math.round(nc*10)/10 });
+      }
+    }
+
+    // ③ 核音枠の揺らぎ（低確率・小さく）
+    if(R() < 0.08 * amt){
+      var fd = (R() * 2 - 1) * 12 * amt;
+      var nf = frame + fd;
+      var nu = upper + fd * 0.5;
+      events.push({ kind:"frame", from:Math.round(frame*100)/100, to:Math.round(nf*100)/100,
+                    delta:Math.round(fd*100)/100 });
+      frame = nf; upper = nu;
+    }
+
+    return {
+      scale: {
+        name: baseScaleName(S.name) + "′", mode:"octave",
+        cents: buildFromTetra(tet, frame, upper),
+        frame: frame, upperCore: upper, join: S.join || "disjunct", tetra: tet,
+        mutatedFrom: S.name, note: "変異後の音階（" + (tag || "") + "）"
+      },
+      events: events
+    };
+  }
+
+  // 枠外音階＝degree 単位で cents を揺らす（0 は動かさない）
+  var cs = scaleCents(S).slice();
+  var out = cs.map(function(c, i){
+    if(i === 0) return 0;
+    var d = (R() * 2 - 1) * maxShift;
+    var nv = Math.max(10, Math.min(1190, c + d));
+    if(Math.abs(d) > 0.5) events.push({ kind:"shift", side:"degree", index:i,
+                                        from:Math.round(c*10)/10, to:Math.round(nv*10)/10,
+                                        delta:Math.round(d*10)/10 });
+    return nv;
+  }).sort(function(a,b){ return a-b; });
+  if(R() < 0.28 * amt && out.length > 3){
+    var k2 = 1 + ri(R, out.length - 1);
+    var dv = out.splice(k2, 1)[0];
+    events.push({ kind:"drop", side:"degree", index:k2, cents:Math.round(dv*10)/10 });
+  }
+  return {
+    scale: { name: baseScaleName(S.name) + "′", mode:"octave",
+             cents: out, frame:null, upperCore:null, tetra:null,
+             mutatedFrom: S.name, note:"枠外音階の変異（" + (tag || "") + "）" },
+    events: events
+  };
+}
+
+/* ── 層への到着 ────────────────────────────────────── */
+function applyArrival(ocsName, newScale, nodeId, whenSec, hopIndex, offsetSec){
+  var sec = OCS[ocsName]; if(!sec) return;
+  var hop  = (hopIndex != null) ? hopIndex : VOY.hops;
+  var mode = (P.mixMode && P.mixMode[ocsName]) || "replace";
+  var ret  = effRetention(ocsName, hop, offsetSec);   // 下げ潮では海岸の保持率が上がる
+  var old  = layerScaleOf(ocsName);
+  var R    = rngFor("mix", VOY.routeId + ":" + hop + ":" + ocsName);
+  // 深海はゆっくり同化する（定着）
+  var tc   = (ocsName === "ds") ? 3.0 : (ocsName === "oki" ? 1.6 : 0.8);
+
+  if(mode === "morph"){
+    // 中間音が cents 上を滑る。到達点は t = 1 - 保持率
+    var tTarget = 1 - ret;
+    VOY.morphing[ocsName] = { from: old, to: newScale, t: 0, tTarget: tTarget, hop: hop,
+                              prog: 0, lastTick: whenSec,
+                              dur: Math.max(1, P.lag) * (ocsName === "ds" ? 2 : 1),
+                              node: nodeId, tc: tc };
+    VOY.layer[ocsName] = { scale: old, node: nodeId, mode: "morph" };
+    EVLOG.push("arrive", { ocs:ocsName, node:nodeId, mode:"morph", hop:hop,
+                           retention:+ret.toFixed(4), tTarget:+tTarget.toFixed(3),
+                           from:getScale(old).name, to:getScale(newScale).name });
+    return;
+  }
+
+  // 置換：partial 単位で入れ替える（保持率＝入れ替わらない確率）
+  VOY.morphing[ocsName] = null;
+  var kept = 0, swapped = 0;
+  sec.voices.forEach(function(v){
+    v.parts.forEach(function(pt){
+      if(R() < ret){
+        // 旧音階のまま残る。まだ由来が無ければ「出発時の音階」を明示的に固定する。
+        if(!pt.origin.scale){ pt.origin = { node: (VOY.layer[ocsName] && VOY.layer[ocsName].node) || null,
+                                            scale: old }; }
+        kept++;
+      } else {
+        pt.origin = { node: nodeId, scale: newScale };
+        swapped++;
+      }
+    });
+  });
+  VOY.layer[ocsName] = { scale: newScale, node: nodeId, mode: "replace" };
+  applyOcsChord(ocsName, tc);
+  EVLOG.push("arrive", { ocs:ocsName, node:nodeId, mode:"replace", hop:hop,
+                         retention:+ret.toFixed(4), kept:kept, swapped:swapped,
+                         from:getScale(old).name, to:getScale(newScale).name });
+}
+
+/* ── 潮目：二系統の合流 ────────────────────────────
+   黒潮と親潮が三陸沖で出会う。航海ではなく「場の状態」として扱う。
+   声を偶数/奇数で二系統に分け、両方を同時に鳴らす。±30c 以内に並んだ
+   音は**まとめずに残し**、detune の揺れを深くして「うなり」を前に出す。   */
+var BEAT_WINDOW_CENTS = 30;      // この幅に入った二音は「うなり」として残す
+var CONFLUENCE = { systems: [], beats: [] };
+
+function applyConfluence(){
+  var route = ROUTE_BY_ID[P.route];
+  if(!route || !route.confluence || !ac) return;
+
+  // 二系統の音階＝合流する二航路の終点ノードの音階（それぞれ1回変異させる）
+  var sys = route.confluence.map(function(rid, si){
+    var r2 = ROUTE_BY_ID[rid];
+    var endId = (r2 && r2.path && r2.path.length) ? r2.path[r2.path.length-1] : null;
+    var nd = endId ? NODE_BY_ID[endId] : null;
+    var base = (nd && nd.scale) ? nd.scale : P.scale;
+    var R = rngFor("confluence", P.route + ":" + rid + ":" + si);
+    var mu = mutateScale(base, R, (P.mutation || 0) / 100, "潮目 " + rid);
+    return { routeId: rid, routeName: r2 ? r2.name : rid, node: endId,
+             scale: mu.scale, mutations: mu.events };
+  });
+  CONFLUENCE.systems = sys;
+  if(sys.length < 2) return;
+
+  // 声を交互に二系統へ割り当てる
+  ["ds","oki","kg"].forEach(function(n){
+    var sec = OCS[n]; if(!sec) return;
+    sec.voices.forEach(function(v, i){
+      var s0 = sys[i % sys.length];
+      v.parts.forEach(function(pt){ pt.origin = { node: s0.node, scale: s0.scale }; });
+    });
+    VOY.layer[n] = { scale: sys[0].scale, node: sys[0].node, mode: "confluence" };
+  });
+  applyAllOcsChords();
+
+  // ±30c 以内で並んだ二音を探し、うなりを強調する（detune の深さを上げる）
+  CONFLUENCE.beats = [];
+  ["ds","oki","kg"].forEach(function(n){
+    var sec = OCS[n]; if(!sec) return;
+    var K = chordSizeOf(), all = [];
+    sec.voices.forEach(function(v, vi){
+      for(var k=0; k<K && k<v.parts.length; k++){
+        var pt = v.parts[k];
+        if(pt.cents == null) continue;
+        all.push({ vi:vi, k:k, pt:pt, sys:(vi % sys.length),
+                   hz:centsToFreq(ocsRoot(n), pt.cents, 0) });
+      }
+      // 既定に戻してから
+      v.parts.forEach(function(pt){ pt.detGain.gain.value = 4; });
+    });
+    for(var a=0; a<all.length; a++){
+      for(var b2=a+1; b2<all.length; b2++){
+        if(all[a].sys === all[b2].sys) continue;             // 別系統どうしだけ
+        var dc = Math.abs(1200 * Math.log2(all[b2].hz / all[a].hz));
+        if(dc <= BEAT_WINDOW_CENTS && dc > 0.01){
+          all[a].pt.detGain.gain.value = 12;                  // ±12 cents に深める
+          all[b2].pt.detGain.gain.value = 12;
+          CONFLUENCE.beats.push({ ocs:n, a:all[a].vi + ":" + all[a].k, b:all[b2].vi + ":" + all[b2].k,
+                                  cents:+dc.toFixed(2),
+                                  beatHz:+Math.abs(all[b2].hz - all[a].hz).toFixed(3) });
+        }
+      }
+    }
+  });
+  EVLOG.push("confluence", {
+    route: P.route,
+    systems: sys.map(function(x){ return { route:x.routeName, node:x.node,
+                                           scale:getScale(x.scale).name,
+                                           cents:scaleCents(x.scale).map(function(c){ return Math.round(c*10)/10; }),
+                                           mutations:x.mutations.length }; }),
+    beatPairs: CONFLUENCE.beats.length,
+    beatHz: CONFLUENCE.beats.map(function(x){ return x.beatHz; })
+  });
+}
+
+/* ── 赤潮：均質化圧 ────────────────────────────────
+   停滞・同化。cents が12平均律グリッド（100 の倍数）へ吸着していく。
+   homogenize が吸着率（0-100）。赤潮航路を選ぶと時間をかけて 100 へ上がる。 */
+function homogenizeCents(cents){
+  var h = Math.max(0, Math.min(100, P.homogenize || 0)) / 100;
+  if(h <= 0) return cents;
+  var oct = Math.floor(cents / 1200), m = cents - oct * 1200;
+  var snapped = Math.round(m / 100) * 100;
+  return oct * 1200 + m + (snapped - m) * h;
+}
+
+function akashioTick(){
+  var route = ROUTE_BY_ID[P.route];
+  if(!route || !route.homogenizing || !P.voyage) return;
+  if(VOY.homogenizeBase == null) VOY.homogenizeBase = P.homogenize;
+  // 30 秒（timeScale 100 換算）で 0 → 100 へ寄っていく
+  var span = 30 * Math.max(1, P.timeScale) / 100;
+  var el = running ? (ac.currentTime - t0) : 0;
+  var target = Math.min(100, VOY.homogenizeBase + (100 - VOY.homogenizeBase) * Math.min(1, el / span));
+  if(Math.abs(target - P.homogenize) > 0.5){
+    P.homogenize = target;
+    applyAllOcsChords();
+    syncUI();
+    if(Math.round(target) % 20 === 0)
+      EVLOG.push("homogenize", { route:P.route, value:+target.toFixed(1) });
+  }
+}
+
+/* ── 航海の進行 ────────────────────────────────────── */
+function voyageStart(){
+  var route = ROUTE_BY_ID[P.route];
+  // 潮目・赤潮のように脚を持たない航路は「場の状態」として別に扱う
+  if(route && route.confluence){ VOY.active = false; VOY.routeId = P.route; applyConfluence(); return; }
+  var rev = !!(route && route.seasonal && seasonDir() < 0);
+  var plan = voyagePlan(P.route, rev);
+  if(!plan.legs.length){ VOY.active = false; return; }
+  VOY.active = true; VOY.routeId = P.route; VOY.plan = plan;
+  VOY.reversed = rev; VOY.branchIdx = -1;
+  VOY.hop = 0; VOY.hops = 0; VOY.phaseIdx = 0; VOY.phase = "berth";
+  VOY.legT0 = ac ? ac.currentTime : 0;
+  VOY.legProg = 0; VOY.lastTick = VOY.legT0;
+  VOY.pending.length = 0;
+  // 出発地の音階を全層の初期値にする
+  var startNode = NODE_BY_ID[plan.legs[0].from];
+  var s0 = (startNode && startNode.scale) ? startNode.scale : P.scale;
+  ["ds","oki","kg"].forEach(function(n){
+    VOY.layer[n] = { scale: s0, node: plan.legs[0].from, mode:"start" };
+    VOY.morphing[n] = null;
+    var sec = OCS[n]; if(!sec) return;
+    sec.voices.forEach(function(v){ v.parts.forEach(function(pt){
+      pt.origin = { node: plan.legs[0].from, scale: s0 }; }); });
+  });
+  if(ac) applyAllOcsChords();
+  EVLOG.push("voyage-start", { route:VOY.routeId, legs:plan.legs.length,
+                               totalSec:+plan.totalSec.toFixed(2),
+                               startNode:plan.legs[0].from, startScale:getScale(s0).name });
+}
+
+function voyageStop(){
+  VOY.active = false;
+  EVLOG.push("voyage-stop", { route:VOY.routeId, hops:VOY.hops });
+}
+
+function legPhaseAt(frac){
+  var acc = 0;
+  for(var i=0; i<VOY_PHASES.length; i++){
+    acc += VOY_PHASES[i].frac;
+    if(frac < acc) return i;
+  }
+  return VOY_PHASES.length - 1;
+}
+
+function voyageTick(){
+  if(!ac) return;
+  var now = ac.currentTime;
+
+  // 到着予約の消化（lag による層ごとの遅延）
+  for(var i=VOY.pending.length-1; i>=0; i--){
+    var pd = VOY.pending[i];
+    if(now >= pd.at){
+      applyArrival(pd.ocs, pd.scale, pd.node, now, pd.hop, pd.offset);
+      VOY.pending.splice(i, 1);
+    }
+  }
+
+  // 補間の進行
+  ["ds","oki","kg"].forEach(function(n){
+    var m = VOY.morphing[n];
+    if(!m) return;
+    // 混交も潮汐ゲートで進む（上げ潮＝流入で混交が速まる）
+    var mdt = Math.max(0, Math.min(0.5, now - m.lastTick));
+    m.lastTick = now;
+    m.prog = Math.min(1, m.prog + (mdt / Math.max(0.001, m.dur)) * Math.max(0, tideGate()));
+    var u = m.prog;
+    var t = m.tTarget * u;
+    if(Math.abs(t - m.t) < 0.01 && u < 1) return;   // 細かすぎる更新は省く
+    m.t = t;
+    // 名前は「行き先 ≈」に固定する（連鎖させると名前が無限に伸びる）
+    var ms = morphScale(m.from, m.to, t, baseScaleName(getScale(m.to).name) + "≈");
+    VOY.layer[n] = { scale: ms, node: m.node, mode:"morph" };
+    var sec = OCS[n];
+    if(sec) sec.voices.forEach(function(v){ v.parts.forEach(function(pt){
+      pt.origin = { node: m.node, scale: ms }; }); });
+    applyOcsChord(n, m.tc);
+    if(u >= 1){
+      VOY.morphing[n] = null;
+      // cents は載せない。補間中の実音高は実時計の連続関数なので、ここに
+      // 入れるとログが走るたびに微差で揺れる（drift ログと同じ理由）。
+      // 決定（どの層が・どのノードから・どこまで滑るか）はこれで完全に決まる。
+      EVLOG.push("morph-done", { ocs:n, node:m.node, hop:m.hop, t:+t.toFixed(3),
+                                 from:getScale(m.from).name, to:getScale(m.to).name,
+                                 events: ms.events });
+    }
+  });
+
+  if(!VOY.active || !VOY.plan) return;
+
+  var leg = VOY.plan.legs[VOY.hop];
+  if(!leg) return;
+
+  // 進捗は「潮汐ゲートを掛けた時間」で積む。上げ潮で速まり、下げ潮で止まる。
+  var dt = Math.max(0, Math.min(0.5, now - VOY.lastTick));
+  VOY.lastTick = now;
+  VOY.legProg += (leg.sec > 0 ? dt / leg.sec : 1) * Math.max(0, tideGate());
+  var frac = VOY.legProg;
+
+  // 段階の遷移
+  var pi = legPhaseAt(Math.min(0.999, Math.max(0, frac)));
+  if(pi !== VOY.phaseIdx){
+    VOY.phaseIdx = pi;
+    VOY.phase = VOY_PHASES[pi].id;
+    onVoyagePhase(VOY.phase, leg, now);
+  }
+
+  // 脚の終わり → 次のホップへ
+  if(frac >= 1){
+    VOY.hop++;
+    VOY.hops++;
+    VOY.legT0 = now;
+    VOY.legProg = 0;
+    VOY.phaseIdx = 0; VOY.phase = "berth";
+    var r = ROUTE_BY_ID[VOY.routeId];
+
+    // モンスーン：季節が変わっていたら伝播方向を反転して、今いるノードから続ける
+    if(r && r.seasonal){
+      var want = (seasonDir() < 0);
+      if(want !== VOY.reversed){
+        var hereId = VOY.plan.legs[Math.min(VOY.hop, VOY.plan.legs.length-1)].from;
+        if(VOY.hop >= VOY.plan.legs.length) hereId = VOY.plan.legs[VOY.plan.legs.length-1].to;
+        var np = voyagePlan(VOY.routeId, want);
+        var idx = np.path ? np.path.indexOf(hereId) : 0;
+        VOY.plan = np; VOY.reversed = want;
+        VOY.hop = Math.max(0, Math.min(np.legs.length - 1, idx < 0 ? 0 : idx));
+        VOY.legProg = 0;
+        EVLOG.push("season-reverse", { route:VOY.routeId, reversed:want, at:hereId,
+                                       season: want ? "冬・北東モンスーン" : "夏・南西モンスーン",
+                                       hop: VOY.hop });
+      }
+    }
+
+    if(VOY.hop >= VOY.plan.legs.length){
+      // 分岐：本路の終点に着いたら、まだ辿っていない枝へ進む
+      var br = (r && r.branches) ? r.branches[VOY.branchIdx + 1] : null;
+      if(br){
+        VOY.branchIdx++;
+        var bp = [br.from].concat(br.path);
+        var bplan = voyagePlan(VOY.routeId, false);
+        // 枝を単独の計画に組み替える
+        var ts2 = Math.max(1, P.timeScale) / 100, blegs = [], btot = 0;
+        for(var bi=0; bi<bp.length-1; bi++){
+          var bf = NODE_BY_ID[bp[bi]], bt = NODE_BY_ID[bp[bi+1]];
+          var bkm = haversineKm(bf, bt);
+          var bdays = (r.speed > 0) ? bkm / r.speed : 0;
+          var bsec = bdays * SECONDS_PER_DAY * ts2;
+          blegs.push({ hop:bi, from:bp[bi], to:bp[bi+1], km:bkm, days:bdays, sec:bsec });
+          btot += bsec;
+        }
+        VOY.plan = { legs: blegs, totalSec: btot, route: r, reversed: false, path: bp, branch: true };
+        VOY.hop = 0; VOY.legProg = 0;
+        EVLOG.push("voyage-branch", { route:VOY.routeId, from:br.from,
+                                      path:br.path, legs:blegs.length });
+      } else if(r && r.loop){
+        VOY.hop = 0;   // 環流：終点から始点へ戻る
+        EVLOG.push("voyage-loop", { route:VOY.routeId, hops:VOY.hops });
+      } else {
+        VOY.active = false;
+        EVLOG.push("voyage-end", { route:VOY.routeId, hops:VOY.hops,
+                                   lastNode: VOY.plan.legs[VOY.plan.legs.length-1].to });
+      }
+    }
+  }
+}
+
+function onVoyagePhase(phase, leg, now){
+  if(phase === "drift"){
+    // 漂流：沖の level と渦を持ち上げ、混交が最大になる
+    VOY.mod.okiLevel = 1.35; VOY.mod.chorus = 1.6;
+    applyOcsLevels(); applyFX("chorus");
+    EVLOG.push("phase", { phase:"drift", hop:leg.hop, from:leg.from, to:leg.to });
+  } else if(phase === "land"){
+    // 着岸：ここで変異を1回引き、海岸が受け取る。沖・深海は lag 後。
+    VOY.mod.okiLevel = 1; VOY.mod.chorus = 1;
+    applyOcsLevels(); applyFX("chorus");
+
+    var dest = NODE_BY_ID[leg.to];
+    var nodeScale = (dest && dest.scale) ? dest.scale : P.scale;
+    // 運搬されてきた音階（表層＝海岸が今持っているもの）と土地の音階を半々に混ぜ、
+    // その混合に変異を掛ける。こうすると変異が累積し、環流で「変異した音階の帰還」が
+    // 起きる。ブレンド率は 0.5 固定（土地と旅の力を等価に置く）。
+    var carried = layerScaleOf("kg");
+    var blended = morphScale(carried, nodeScale, BLEND_CARRIED_NODE,
+                             baseScaleName(getScale(nodeScale).name) + "≈");
+    var R = rngFor("mutate", VOY.routeId + ":" + VOY.hops);
+    // 大潮ほど変異が大きい。潮位は「計画時刻」から引くので時計のゆらぎで揺れない。
+    var ptide = plannedTideAt(VOY.hops);
+    var amt   = effMutation(VOY.hops);
+    var mu = mutateScale(blended, R, amt, VOY.routeId + " #" + VOY.hops);
+
+    EVLOG.push("hop", { route:VOY.routeId, hop:VOY.hops, from:leg.from, to:leg.to,
+                        km:Math.round(leg.km), days:+leg.days.toFixed(2),
+                        nodeScale:getScale(nodeScale).name,
+                        carriedScale:getScale(carried).name,
+                        blendCents: blended.cents.map(function(c){ return Math.round(c*10)/10; }),
+                        mutations:mu.events,
+                        tide: { spring:+ptide.spring.toFixed(3), h:+ptide.h.toFixed(3),
+                                slope:+ptide.slope.toFixed(3), amount:+amt.toFixed(4) },
+                        cents: mu.scale.cents.map(function(c){ return Math.round(c*10)/10; }) });
+
+    // 海岸＝到着地。沖は lag 後、深海はさらに lag 後（時間の地層）。
+    // 大潮では遅延が縮み、三層に同時に届く（＝同時到着↑）。
+    var lag = effLag(VOY.hops);
+    var hopIdx = VOY.hops;
+    applyArrival("kg", mu.scale, leg.to, now, hopIdx, 0);
+    VOY.pending.push({ ocs:"oki", scale:mu.scale, node:leg.to, at: now + lag,
+                       hop: hopIdx, offset: lag });
+    VOY.pending.push({ ocs:"ds",  scale:mu.scale, node:leg.to, at: now + lag * 2,
+                       hop: hopIdx, offset: lag * 2 });
+  } else if(phase === "settle"){
+    EVLOG.push("phase", { phase:"settle", hop:leg.hop, to:leg.to });
+  } else {
+    VOY.mod.okiLevel = 1; VOY.mod.chorus = 1;
+    EVLOG.push("phase", { phase:phase, hop:leg.hop, from:leg.from, to:leg.to });
+  }
+}
+
+// 航海の現在位置（地図表示と readout 用）
+function voyagePosition(){
+  if(!VOY.plan || !VOY.plan.legs.length) return null;
+  var leg = VOY.plan.legs[Math.min(VOY.hop, VOY.plan.legs.length-1)];
+  var from = NODE_BY_ID[leg.from], to = NODE_BY_ID[leg.to];
+  var frac = Math.min(1, Math.max(0, VOY.legProg));
+  return { leg: leg, from: from, to: to, frac: frac,
+           lat: from.lat + (to.lat - from.lat) * frac,
+           lon: from.lon + (to.lon - from.lon) * frac,
+           phase: VOY.phase, phaseLabel: (VOY_PHASES[VOY.phaseIdx] || {}).label,
+           remainSec: VOY.plan.totalSec - (function(){
+             var acc = 0;
+             for(var i=0; i<VOY.hop; i++) acc += VOY.plan.legs[i].sec;
+             return acc + frac * leg.sec;
+           })() };
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   潮汐エンジン（設計 D）
+
+   潮位 h(t) = Σ A_i cos(2π t / T_i + φ_i)
+   周期 T_i は天文定数（ocean-data.js の tide.constituents）。振幅・位相は
+   東京湾程度の近似で、気象庁の調和定数に差し替え可。
+
+   ■ 大潮／小潮は「作らない」。M2(12.4206h) と S2(12.0000h) を足すと
+     うなり周期 1/(1/12 − 1/12.4206) = 14.765日 が自然に生じる。
+     これは音響のうなりと同じ構造なので、readout でそう明示する。
+
+   ■ 決定と聞こえ方で時計を分ける（追跡可能性のため）
+       ・聞こえ方（海岸の level / HP / 非線形 / 伝播ゲート）＝ 実時計
+       ・音楽的決定（変異量 / 層間遅延）＝ **計画時刻**の潮位
+         計画時刻 = 航路と timeScale から決まる純関数なので、時計のゆらぎに
+         関係なく同一 seed で航海ログが一致する。
+   ═══════════════════════════════════════════════════════════════════ */
+
+var TIDE_M2_SEC_AT_100 = (DATA.time && DATA.time.tideM2SecAt100 != null)
+                       ? DATA.time.tideM2SecAt100 : 180;   // timeScale 100 で M2 1周期 = 3分
+var CONSTITS = (DATA.tide && DATA.tide.constituents) || [];
+var CONSTIT_BY_NAME = {};
+CONSTITS.forEach(function(c){ CONSTIT_BY_NAME[c.name] = c; });
+var M2 = CONSTIT_BY_NAME.M2 || { periodHours:12.4206, amp:0.5, phase:0 };
+var S2 = CONSTIT_BY_NAME.S2 || { periodHours:12.0000, amp:0.24, phase:0 };
+var M4 = CONSTIT_BY_NAME.M4 || { periodHours:6.2103, amp:0.02, phase:0 };
+
+// 潮汐の時計：演奏経過秒 → 潮汐の「時間」
+function tideHoursPerSec(){
+  var sec = TIDE_M2_SEC_AT_100 * Math.max(1, P.timeScale) / 100;
+  return M2.periodHours / sec;
+}
+function tideHoursAt(elapsedSec){ return elapsedSec * tideHoursPerSec(); }
+
+// 潮位（-1..1 に正規化）
+function tideHeight(hours){
+  var sum = 0, norm = 0;
+  for(var i=0; i<CONSTITS.length; i++){
+    var c = CONSTITS[i];
+    sum  += c.amp * Math.cos(2*Math.PI*hours / c.periodHours + c.phase);
+    norm += c.amp;
+  }
+  return norm > 0 ? sum / norm : 0;
+}
+// dh/dt（正なら上げ潮＝流入。-1..1 に正規化）
+function tideSlope(hours){
+  var sum = 0, norm = 0;
+  for(var i=0; i<CONSTITS.length; i++){
+    var c = CONSTITS[i], w = 2*Math.PI / c.periodHours;
+    sum  += -c.amp * w * Math.sin(w*hours + c.phase);
+    norm +=  c.amp * w;
+  }
+  return norm > 0 ? sum / norm : 0;
+}
+
+// 大潮の度合い 0..1。M2 と S2 のうなりそのもの。
+function springIndexAt(hours){
+  if(P.tideRealtime) return moonSpringIndex(Date.now());
+  var beat = 2*Math.PI*hours*(1/S2.periodHours - 1/M2.periodHours) + (S2.phase - M2.phase);
+  return (1 + Math.cos(beat)) / 2;
+}
+// 大潮小潮のうなり周期（日）＝ M2 と S2 の差周波数の逆数
+function springBeatDays(){
+  var d = Math.abs(1/S2.periodHours - 1/M2.periodHours);
+  return d > 0 ? (1 / d) / 24 : 0;
+}
+// 実時間モード：月齢から大潮/小潮の度合いだけ実世界に合わせる
+function moonSpringIndex(ms){
+  var mo = (DATA.tide && DATA.tide.moon) || {};
+  var epoch = Date.parse(mo.newMoonEpochUTC || "2000-01-06T18:14:00Z");
+  var syn   = (mo.synodicMonthDays || 29.530588) * 86400000;
+  var age   = (((ms - epoch) % syn) + syn) % syn / syn;    // 0=新月 0.5=満月
+  return (1 + Math.cos(4*Math.PI*age)) / 2;                // 新月・満月で 1
+}
+function moonAge01(ms){
+  var mo = (DATA.tide && DATA.tide.moon) || {};
+  var epoch = Date.parse(mo.newMoonEpochUTC || "2000-01-06T18:14:00Z");
+  var syn   = (mo.synodicMonthDays || 29.530588) * 86400000;
+  return (((ms - epoch) % syn) + syn) % syn / syn;
+}
+
+// 実時計の潮汐状態（毎 tick 更新してキャッシュ）
+var TIDEST = { hours:0, h:0, slope:0, spring:0, flood:true, amp:0 };
+
+function tideAmp01(){ return Math.max(0, Math.min(1, (P.tideAmp != null ? P.tideAmp : 0) / 100)); }
+
+function tideUpdate(){
+  var el = (ac && running) ? (ac.currentTime - t0) : 0;
+  TIDEST.hours  = tideHoursAt(el);
+  TIDEST.h      = tideHeight(TIDEST.hours);
+  TIDEST.slope  = tideSlope(TIDEST.hours);
+  TIDEST.spring = springIndexAt(TIDEST.hours);
+  TIDEST.flood  = TIDEST.slope > 0;
+  TIDEST.amp    = tideAmp01();
+}
+
+/* ── 伝播ゲート ────────────────────────────────────
+   上げ潮＝流入で伝播が進み、下げ潮＝流出で止まる。
+   tideAmp 0 なら常に 1（＝Phase 4 と同じ動き）。                   */
+function tideGate(){
+  var a = TIDEST.amp;
+  if(a <= 0) return 1;
+  var s = Math.max(-1, Math.min(1, TIDEST.slope));
+  // 上げ潮は 1 を超えて速まり、下げ潮は 0 近くまで落ちる
+  return 1 + a * s;
+}
+// 下げ潮のとき海岸の保持率が一時的に上がる（旧音階への部分回帰）。
+// hopIndex を渡すと「計画時刻の潮位」で引く＝決定が時計のゆらぎに依存しない。
+// 渡さない場合（UI 表示など）は実時計の潮位を使う。
+function effRetention(ocsName, hopIndex, offsetSec){
+  var base = (P.retention && P.retention[ocsName] != null) ? P.retention[ocsName] : 0.5;
+  if(ocsName !== "kg") return base;
+  var a = tideAmp01();
+  if(a <= 0) return base;
+  var slope = (hopIndex != null) ? plannedTideAt(hopIndex, offsetSec).slope : TIDEST.slope;
+  var ebb = Math.max(0, -slope);
+  return Math.min(0.97, base + ebb * 0.6 * a);
+}
+
+/* ── 音楽的決定に使う「計画時刻の潮位」──────────────
+   ホップ n の着岸は、航路と timeScale から決まる計画時刻に起きる。
+   実時計ではなくこれを使うので、時計のゆらぎで決定が変わらない。      */
+// 着岸（land 段階の開始）の計画時刻。停泊+出航+漂流 を足した位置。
+var LAND_FRAC = (function(){
+  var f = 0;
+  for(var i=0; i<VOY_PHASES.length; i++){
+    if(VOY_PHASES[i].id === "land") break;
+    f += VOY_PHASES[i].frac;
+  }
+  return f;
+})();
+function plannedHopSeconds(hopIndex){
+  var plan = VOY.plan || voyagePlan(P.route);
+  if(!plan.legs.length) return 0;
+  var idx = Math.max(0, Math.min(hopIndex, plan.legs.length - 1));
+  var acc = 0;
+  for(var i=0; i<idx; i++) acc += plan.legs[i].sec;
+  return acc + LAND_FRAC * plan.legs[idx].sec;
+}
+function plannedTideAt(hopIndex, offsetSec){
+  var hours = tideHoursAt(plannedHopSeconds(hopIndex) + (offsetSec || 0));
+  return { hours: hours, h: tideHeight(hours), slope: tideSlope(hours),
+           spring: P.tideRealtime ? moonSpringIndex(Date.now()) : springIndexAt(hours) };
+}
+// 大潮ほど変異が大きく、同時到着が増える（＝層間遅延が縮む）
+function effMutation(hopIndex){
+  var a = tideAmp01();
+  var base = (P.mutation || 0) / 100;
+  if(a <= 0) return base;
+  var sp = plannedTideAt(hopIndex).spring;
+  return Math.max(0, Math.min(1, base * (1 + a * (sp * 1.2 - 0.4))));
+}
+function effLag(hopIndex){
+  var a = tideAmp01();
+  var base = Math.max(0, P.lag);
+  if(a <= 0) return base;
+  var sp = plannedTideAt(hopIndex).spring;
+  return base * (1 - 0.55 * a * sp);
+}
+
+/* ── 潮位 → 海岸層（満潮で海岸が満ちる）────────────
+   ・level を潮位で上下させる
+   ・色付けフィルタ（HP 280Hz）の cutoff を潮位で上下させる
+   ・浅海分潮 M4 は浅海の非線形から生じる倍潮。対応して海岸層だけに
+     軽い非線形（tanh）を入れる。深海は純正弦のまま。                  */
+function tideKgLevelMul(){
+  var a = TIDEST.amp;
+  if(a <= 0) return 1;
+  // 満潮を 1.0 の基準にし、干潮で引く（＝持ち上げない）。
+  // 上に振ると嵐・雷と重なった時にヘッドルームを食うため。
+  return 1 - 0.42 * a * (1 - TIDEST.h) / 2;
+}
+function applyTideToShore(){
+  if(!ac) return;
+  var sec = OCS.kg; if(!sec) return;
+  var a = TIDEST.amp;
+  // HP cutoff：満潮で開き、干潮で締まる
+  var hp = 280 * (a <= 0 ? 1 : (1 + 0.55 * a * TIDEST.h));
+  sec.color.frequency.setTargetAtTime(Math.max(60, hp), ac.currentTime, 0.4);
+  // 非線形の深さ：M4 の振幅に比例（浅海の倍潮＝浅瀬の歪み）
+  if(sec.shaper){
+    var m4 = M4.amp / Math.max(0.0001, M2.amp);          // 0.04 程度
+    // 「軽い非線形」に収める：M4/M2 = 0.04 を 8 倍し、上限 0.18 で止める
+    var drive = a * (0.5 + 0.5 * Math.abs(TIDEST.h)) * m4 * 8;
+    sec.shaperMix.gain.setTargetAtTime(Math.min(0.18, drive), ac.currentTime, 0.5);
+  }
+}
+
+/* ── うねり／うなりの周期を分潮比へ ────────────────
+   以前は Math.random だった LFO 周期を、分潮の周期比の縮尺に置き換える。
+   voice i には分潮 (i mod 6)、その partial k には分潮 (i+k mod 6) を当てる。
+   これで潮汐＝うなりの対応が音響の内部にも入り、かつ完全に決定的になる。   */
+var BASE_SWELL_HZ  = 0.080;   // 分潮 M2 に対応する amp LFO の周期
+var BASE_DETUNE_HZ = 0.100;   // 同 detune LFO
+
+function constitAt(i){
+  if(!CONSTITS.length) return M2;
+  return CONSTITS[((i % CONSTITS.length) + CONSTITS.length) % CONSTITS.length];
+}
+function swellHzFor(voiceIdx){
+  var c = constitAt(voiceIdx);
+  return BASE_SWELL_HZ / (c.periodHours / M2.periodHours);
+}
+function detuneHzFor(voiceIdx, partialIdx){
+  var c = constitAt(voiceIdx + partialIdx);
+  return BASE_DETUNE_HZ / (c.periodHours / M2.periodHours);
 }
 
 /* ── チャプチャプ（バブルポップ）──────────────────
@@ -464,10 +1744,10 @@ function driftTick(){
      ・並列 2 帯域 BP（主共振 + 1.8 倍の倍音）── 水の共鳴
      ・周波数を下方掃引（fStart → 0.5〜0.9 fStart）── バブル収縮
      ・高 Q（8〜14）── 水中らしい共鳴感                  */
-function chapChap(when, freqRange, amp, durRange, ocsName){
-  var dur = durRange[0] + Math.random() * (durRange[1] - durRange[0]);
-  var fStart = freqRange[0] + Math.random() * (freqRange[1] - freqRange[0]);
-  var fEnd   = fStart * (0.5 + Math.random() * 0.4);
+function chapChap(when, freqRange, amp, durRange, ocsName, R){
+  var dur = rr(R, durRange[0], durRange[1]);
+  var fStart = rr(R, freqRange[0], freqRange[1]);
+  var fEnd   = fStart * rr(R, 0.5, 0.9);
 
   // 頭に励起を集中した短いノイズバッファ
   var len = Math.ceil(ac.sampleRate * dur);
@@ -480,13 +1760,13 @@ function chapChap(when, freqRange, amp, durRange, ocsName){
 
   // 主共振 BP（高 Q、下方掃引）
   var bp1 = ac.createBiquadFilter(); bp1.type = "bandpass";
-  bp1.Q.value = 8 + Math.random() * 6;
+  bp1.Q.value = rr(R, 8, 14);
   bp1.frequency.setValueAtTime(fStart, when);
   bp1.frequency.exponentialRampToValueAtTime(fEnd, when + dur * 0.6);
 
   // 倍音側 BP（中 Q、同方向掃引）
   var bp2 = ac.createBiquadFilter(); bp2.type = "bandpass";
-  bp2.Q.value = 5 + Math.random() * 4;
+  bp2.Q.value = rr(R, 5, 9);
   bp2.frequency.setValueAtTime(fStart * 1.8, when);
   bp2.frequency.exponentialRampToValueAtTime(fEnd * 1.8, when + dur * 0.6);
 
@@ -499,7 +1779,7 @@ function chapChap(when, freqRange, amp, durRange, ocsName){
   env.gain.exponentialRampToValueAtTime(0.0001, when + dur);
 
   var pan = ac.createStereoPanner();
-  pan.pan.value = (Math.random()*2-1) * 0.85;
+  pan.pan.value = rr(R, -0.85, 0.85);
 
   src.connect(bp1); bp1.connect(g1); g1.connect(env);
   src.connect(bp2); bp2.connect(g2); g2.connect(env);
@@ -514,17 +1794,17 @@ function chapChap(when, freqRange, amp, durRange, ocsName){
                   ＋拡散中に 10〜18 個のバブルポップ
      3) 退き   ─ 低域 brown rumble がじわっと消える
    全体で 2〜5 秒。海岸セクションへ出力。                 */
-function waveNoise(when, amp){
-  var crashDur   = 0.06 + Math.random() * 0.04;
-  var spreadDur  = 1.2  + Math.random() * 1.8;
-  var retreatDur = 0.8  + Math.random() * 0.8;
+function waveNoise(when, amp, R){
+  var crashDur   = rr(R, 0.06, 0.10);
+  var spreadDur  = rr(R, 1.2, 3.0);
+  var retreatDur = rr(R, 0.8, 1.6);
   var tCrash   = when;
   var tSpread  = tCrash + crashDur;
   var tRetreat = tSpread + spreadDur;
 
   // 全体パン（その波の到来位置）
   var pan = ac.createStereoPanner();
-  pan.pan.value = (Math.random()*2-1) * 0.5;
+  pan.pan.value = rr(R, -0.5, 0.5);
   pan.connect(OCS.kg.out);
 
   // ─ 衝撃：頭で大きく一瞬の broadband クラッシュ ─
@@ -565,12 +1845,12 @@ function waveNoise(when, amp){
   spreadSrc.start(tSpread); spreadSrc.stop(tSpread + spreadDur + 0.05);
 
   // ─ 拡散中のバブルポップ散らし（10〜18 個）─
-  var nBubbles = 10 + Math.floor(Math.random() * 9);
+  var nBubbles = 10 + ri(R, 9);
   for(var b=0; b<nBubbles; b++){
-    var bT   = tSpread + Math.random() * spreadDur;
-    var bF   = 500 + Math.random() * 2500;
-    var bDur = 0.025 + Math.random() * 0.05;
-    var bAmp = amp * 0.35 * (0.5 + Math.random() * 0.5);
+    var bT   = tSpread + R() * spreadDur;
+    var bF   = rr(R, 500, 3000);
+    var bDur = rr(R, 0.025, 0.075);
+    var bAmp = amp * 0.35 * rr(R, 0.5, 1.0);
     var bLen = Math.ceil(ac.sampleRate * bDur);
     var bBuf = ac.createBuffer(1, bLen, ac.sampleRate);
     var bD = bBuf.getChannelData(0);
@@ -581,9 +1861,9 @@ function waveNoise(when, amp){
     var bBP  = ac.createBiquadFilter(); bBP.type = "bandpass";
     bBP.frequency.setValueAtTime(bF * 1.5, bT);
     bBP.frequency.exponentialRampToValueAtTime(bF * 0.7, bT + bDur * 0.5);
-    bBP.Q.value = 8 + Math.random() * 6;
+    bBP.Q.value = rr(R, 8, 14);
     var bPan = ac.createStereoPanner();
-    bPan.pan.value = (Math.random()*2-1) * 0.9;
+    bPan.pan.value = rr(R, -0.9, 0.9);
     var bG = ac.createGain(); bG.gain.value = bAmp;
     bSrc.connect(bBP); bBP.connect(bG); bG.connect(bPan); bPan.connect(OCS.kg.out);
     bSrc.start(bT); bSrc.stop(bT + bDur + 0.05);
@@ -716,7 +1996,7 @@ function applyRain(){
    2) ボディ   ─ 200〜500 Hz の帯域ノイズ、頭で大きく「ガ」
    3) クラック ─ broadband ノイズ、HP が 1.8k → 200Hz へ降下、「ッ」の鋭さ
    4) 鳴動     ─ 低域 brown noise を 6〜13 秒、LP が LFO で揺れる「ー ン」  */
-function thunder(impactTime, intensity){
+function thunder(impactTime, intensity, R){
   // 雷は遠雷の物理：低周波は遠くまで届くが高周波は空気で減衰する。
   // よって観測者には低音のゴロゴロが先に届き、稲妻が近い時に
   // 全帯域のドシャーンが衝突する。三段で時間順に組み立てる。
@@ -726,11 +2006,14 @@ function thunder(impactTime, intensity){
   //
   // 雷は master の 1/12 制約を補うため専用バスでブースト。
   var thunderBus = ac.createGain();
-  thunderBus.gain.value = 2.0;  // 雷を 1/3 に
+  // Phase 3: 以前は 2.0 で、master の 1/12 を突き抜けて出力ピークが 6 前後（＝約 +15dBFS）
+  // に達していた。雷だけで全体のヘッドルームを食い潰していたので約 1/8 に絞る。
+  // 内部（サブ／ボディ／クラック／鳴動）の相対バランスは変えていない。
+  thunderBus.gain.value = 0.25;
   thunderBus.connect(masterPan);
 
   // ===== A) 接近 ─ 低音ゴロゴロが衝撃前に高まる =====
-  var approachDur = 1.5 + Math.random() * 2.0;
+  var approachDur = rr(R, 1.5, 3.5);
   var tApproach   = Math.max(ac.currentTime + 0.02, impactTime - approachDur);
   var actualApproach = impactTime - tApproach;
   if(actualApproach > 0.20){
@@ -749,7 +2032,7 @@ function thunder(impactTime, intensity){
     var preSrc = ac.createBufferSource(); preSrc.buffer = preBuf;
     var preLP  = ac.createBiquadFilter(); preLP.type = "lowpass";
     preLP.frequency.value = 160; preLP.Q.value = 0.9;
-    var preLfo  = ac.createOscillator(); preLfo.frequency.value = 0.35 + Math.random() * 0.55;
+    var preLfo  = ac.createOscillator(); preLfo.frequency.value = rr(R, 0.35, 0.90);
     var preLfoG = ac.createGain(); preLfoG.gain.value = 55;
     preLfo.connect(preLfoG); preLfoG.connect(preLP.frequency);
     var preG = ac.createGain();
@@ -758,7 +2041,7 @@ function thunder(impactTime, intensity){
     preG.gain.exponentialRampToValueAtTime(intensity * 1.05, impactTime - 0.02);
     preG.gain.exponentialRampToValueAtTime(0.001, impactTime + 0.30);
     var prePan = ac.createStereoPanner();
-    prePan.pan.value = (Math.random()*2-1) * 0.55;
+    prePan.pan.value = rr(R, -0.55, 0.55);
     preSrc.connect(preLP); preLP.connect(preG);
     preG.connect(prePan); prePan.connect(thunderBus);
     preSrc.start(tApproach); preSrc.stop(impactTime + 0.35);
@@ -767,7 +2050,7 @@ function thunder(impactTime, intensity){
 
   var when = impactTime;  // 以下は B/C の衝撃時刻
   // ─ 1) サブ衝撃 ─（ピッチ降下サイン＋三角波重ね、胸を突く重低音） ─
-  var subF = 45 + Math.random() * 40;
+  var subF = rr(R, 45, 85);
   var subO = ac.createOscillator(); subO.type = "sine";
   subO.frequency.setValueAtTime(subF * 2.4, when);
   subO.frequency.exponentialRampToValueAtTime(subF, when + 0.07);
@@ -784,7 +2067,7 @@ function thunder(impactTime, intensity){
   subO2.start(when); subO2.stop(when + 1.05);
 
   // ─ 2) ボディ ─（200〜500Hz のミッドノイズ、頭が大きい） ─
-  var bodyDur = 0.32 + Math.random() * 0.12;
+  var bodyDur = rr(R, 0.32, 0.44);
   var bodyLen = Math.ceil(ac.sampleRate * bodyDur);
   var bodyBuf = ac.createBuffer(2, bodyLen, ac.sampleRate);
   for(var ch=0; ch<2; ch++){
@@ -800,13 +2083,13 @@ function thunder(impactTime, intensity){
   bodyBP.Q.value = 1.5;
   var bodyG = ac.createGain(); bodyG.gain.value = intensity * 5.0;
   var bodyPan = ac.createStereoPanner();
-  bodyPan.pan.value = (Math.random()*2-1) * 0.5;
+  bodyPan.pan.value = rr(R, -0.5, 0.5);
   bodySrc.connect(bodyBP); bodyBP.connect(bodyG);
   bodyG.connect(bodyPan); bodyPan.connect(thunderBus);
   bodySrc.start(when); bodySrc.stop(when + bodyDur + 0.05);
 
   // ─ 3) クラック ─（broadband、HP が降下、tanh で潰す） ─
-  var crackDur = 0.20 + Math.random() * 0.10;
+  var crackDur = rr(R, 0.20, 0.30);
   var crackLen = Math.ceil(ac.sampleRate * crackDur);
   var crackBuf = ac.createBuffer(2, crackLen, ac.sampleRate);
   for(var ch=0; ch<2; ch++){
@@ -828,13 +2111,13 @@ function thunder(impactTime, intensity){
   crackShape.curve = sc;
   var crackG = ac.createGain(); crackG.gain.value = intensity * 7.0;
   var crackPan = ac.createStereoPanner();
-  crackPan.pan.value = (Math.random()*2-1) * 0.7;
+  crackPan.pan.value = rr(R, -0.7, 0.7);
   crackSrc.connect(crackHP); crackHP.connect(crackShape); crackShape.connect(crackG);
   crackG.connect(crackPan); crackPan.connect(thunderBus);
   crackSrc.start(when); crackSrc.stop(when + crackDur + 0.05);
 
   // ─ 4) 鳴動 ─（低域 brown rumble、長尺、LP が揺れる） ─
-  var rumbleDur = 8 + Math.random() * 9;
+  var rumbleDur = rr(R, 8, 17);
   var rumbleLen = Math.ceil(ac.sampleRate * rumbleDur);
   var rumbleBuf = ac.createBuffer(2, rumbleLen, ac.sampleRate);
   for(var ch=0; ch<2; ch++){
@@ -849,14 +2132,14 @@ function thunder(impactTime, intensity){
   var rumbleSrc = ac.createBufferSource(); rumbleSrc.buffer = rumbleBuf;
   var rumbleLP = ac.createBiquadFilter(); rumbleLP.type = "lowpass";
   rumbleLP.frequency.value = 320; rumbleLP.Q.value = 1.4;
-  var rLfo = ac.createOscillator(); rLfo.frequency.value = 0.20 + Math.random() * 0.8;
+  var rLfo = ac.createOscillator(); rLfo.frequency.value = rr(R, 0.20, 1.00);
   var rLfoG = ac.createGain(); rLfoG.gain.value = 160;
   rLfo.connect(rLfoG); rLfoG.connect(rumbleLP.frequency);
   var rumbleG = ac.createGain();
   rumbleG.gain.setValueAtTime(intensity * 3.0, when + 0.10);
   rumbleG.gain.exponentialRampToValueAtTime(0.001, when + rumbleDur);
   var rumblePan = ac.createStereoPanner();
-  rumblePan.pan.value = (Math.random()*2-1) * 0.45;
+  rumblePan.pan.value = rr(R, -0.45, 0.45);
   rumbleSrc.connect(rumbleLP); rumbleLP.connect(rumbleG);
   rumbleG.connect(rumblePan); rumblePan.connect(thunderBus);
   rumbleSrc.start(when + 0.04); rumbleSrc.stop(when + rumbleDur + 0.05);
@@ -864,21 +2147,21 @@ function thunder(impactTime, intensity){
 }
 
 /* ── 環境バブル（OCS の状態と独立した微小ポップ）──── */
-function ambientBubble(when, amp){
-  var fStart = 1200 + Math.random() * 2500;
-  var fEnd   = fStart * (0.5 + Math.random() * 0.4);
-  var dur = 0.025 + Math.random() * 0.08;
+function ambientBubble(when, amp, R){
+  var fStart = rr(R, 1200, 3700);
+  var fEnd   = fStart * rr(R, 0.5, 0.9);
+  var dur = rr(R, 0.025, 0.105);
   var len = Math.ceil(ac.sampleRate * dur);
   var buf = ac.createBuffer(1, len, ac.sampleRate);
   var d = buf.getChannelData(0);
   for(var i=0; i<len; i++) d[i] = (Math.random()*2-1) * Math.exp(-i / (len * 0.18));
   var src = ac.createBufferSource(); src.buffer = buf;
   var bp = ac.createBiquadFilter(); bp.type = "bandpass";
-  bp.Q.value = 8 + Math.random() * 6;
+  bp.Q.value = rr(R, 8, 14);
   bp.frequency.setValueAtTime(fStart, when);
   bp.frequency.exponentialRampToValueAtTime(fEnd, when + dur * 0.6);
   var pan = ac.createStereoPanner();
-  pan.pan.value = (Math.random()*2-1) * 0.9;
+  pan.pan.value = rr(R, -0.9, 0.9);
   var g = ac.createGain(); g.gain.value = amp;
   src.connect(bp); bp.connect(g); g.connect(pan); pan.connect(masterPan);
   src.start(when); src.stop(when + dur + 0.05);
@@ -890,50 +2173,68 @@ function ripplesTick(){
   var w = weatherProfile();
   var now = ac.currentTime;
 
-  if(P.oki.on && Math.random() < 0.045 * w.chap){
-    chapChap(now + 0.02, [400, 1200], 0.07 * w.chap, [0.05, 0.22], "oki");
+  // この tick の判定用系列。細部は slot ごとの別系列を渡す。
+  var tk = TICK.ripples++;
+  var R  = rngFor("ripples", tk);
+
+  if(P.oki.on && R() < 0.045 * w.chap){
+    chapChap(now + 0.02, [400, 1200], 0.07 * w.chap, [0.05, 0.22], "oki", rngFor("chap-oki", tk));
   }
   if(P.kg.on){
-    if(Math.random() < 0.07 * w.chap){
-      chapChap(now + 0.02, [1500, 4500], 0.05 * w.chap, [0.03, 0.14], "kg");
+    if(R() < 0.07 * w.chap){
+      chapChap(now + 0.02, [1500, 4500], 0.05 * w.chap, [0.03, 0.14], "kg", rngFor("chap-kg1", tk));
     }
-    if(Math.random() < 0.075 * w.chap){
-      chapChap(now + 0.02, [800, 2200], 0.045 * w.chap, [0.04, 0.18], "kg");
+    if(R() < 0.075 * w.chap){
+      chapChap(now + 0.02, [800, 2200], 0.045 * w.chap, [0.04, 0.18], "kg", rngFor("chap-kg2", tk));
     }
     // 波の打ち寄せ ─ さざ波で 5〜8 秒に一度、荒波で 2〜3 秒に一度になるよう頻度を上げた
-    if(Math.random() < 0.013 * w.wave){
-      waveNoise(now + 0.05, 0.045 * w.wave);
+    if(R() < 0.013 * w.wave){
+      waveNoise(now + 0.05, 0.045 * w.wave, rngFor("wave", tk));
+      EVLOG.push("wave", { tick:tk, amp:+(0.045 * w.wave).toFixed(4) });
     }
   }
 
   // 環境バブル：OCS の on/off と独立して、潮の小さな泡が常に立つ
-  if(Math.random() < 0.022 * w.chap){
-    ambientBubble(now + 0.02, 0.028 * w.chap);
+  if(R() < 0.022 * w.chap){
+    ambientBubble(now + 0.02, 0.028 * w.chap, rngFor("bubble", tk));
   }
   // 稀に低めの遠い波音（中波）
-  if(P.kg.on && Math.random() < 0.003 * w.wave){
-    waveNoise(now + 0.05, 0.025 * w.wave);
+  if(P.kg.on && R() < 0.003 * w.wave){
+    waveNoise(now + 0.05, 0.025 * w.wave, rngFor("wave-far", tk));
+    EVLOG.push("wave-far", { tick:tk, amp:+(0.025 * w.wave).toFixed(4) });
   }
   // 雷：頻度に応じて発火（衝撃の前に 1.5〜3.5 秒の低音接近があるので
   // ある程度先に予約する。100 で約 2 秒に一度のペース）
-  if(P.thunder > 0 && Math.random() < (P.thunder / 100) * 0.025){
+  if(P.thunder > 0 && R() < (P.thunder / 100) * 0.025){
+    var TR = rngFor("thunder", tk);
     // 衝撃は 2〜3 秒先 ─ 低音ゴロゴロが接近する時間を確保
-    thunder(now + 2.2 + Math.random() * 1.0, 1.4 + Math.random() * 1.1);
+    var d1 = rr(TR, 2.2, 3.2), i1 = rr(TR, 1.4, 2.5);
+    thunder(now + d1, i1, rngFor("thunder-1", tk));
+    EVLOG.push("thunder", { tick:tk, k:1, delay:+d1.toFixed(3), intensity:+i1.toFixed(3) });
     // 連続雷：1 つ目の衝撃の数秒後に重ねる（>40 で 70%）
-    if(P.thunder > 40 && Math.random() < 0.70){
-      thunder(now + 4.5 + Math.random() * 1.5, 1.0 + Math.random() * 0.9);
+    if(P.thunder > 40 && TR() < 0.70){
+      var d2 = rr(TR, 4.5, 6.0), i2 = rr(TR, 1.0, 1.9);
+      thunder(now + d2, i2, rngFor("thunder-2", tk));
+      EVLOG.push("thunder", { tick:tk, k:2, delay:+d2.toFixed(3), intensity:+i2.toFixed(3) });
     }
     // 三連雷：更にもう一発（>70 で 45%）
-    if(P.thunder > 70 && Math.random() < 0.45){
-      thunder(now + 6.5 + Math.random() * 2.0, 0.8 + Math.random() * 0.8);
+    if(P.thunder > 70 && TR() < 0.45){
+      var d3 = rr(TR, 6.5, 8.5), i3 = rr(TR, 0.8, 1.6);
+      thunder(now + d3, i3, rngFor("thunder-3", tk));
+      EVLOG.push("thunder", { tick:tk, k:3, delay:+d3.toFixed(3), intensity:+i3.toFixed(3) });
     }
   }
-
 }
 
 /* ── 潮流：マスターパンを時間関数で揺らす ──────── */
 function currentTick(){
   if(!running) return;
+  TICK.current++;
+  tideUpdate();
+  akashioTick();
+  voyageTick();
+  // 潮位 → 海岸の level / HP / 非線形（1秒に数回でよい）
+  if(TICK.current % 6 === 0){ applyTideToShore(); if(TIDEST.amp > 0) applyOcsLevels(); }
   var t = ac.currentTime - t0;
   var p = currentPan(t);
   masterPan.pan.setTargetAtTime(p, ac.currentTime, 0.15);
@@ -966,6 +2267,21 @@ function reloadDepthIR(){
   DEPTH_IR_TIMER = setTimeout(function(){
     if(FX.depth && FX.depth.conv) FX.depth.conv.buffer = makeDepthIR(P.fx.depth.size);
   }, 160);
+}
+
+// ニー付きソフトクリップ曲線：|x| <= knee は y = x（完全に素通り）、
+// それを超えた分だけ tanh で丸めて ±1 に漸近させる。
+function makeSoftClipCurve(knee){
+  var n = 4096, curve = new Float32Array(n);
+  var k = Math.max(0.1, Math.min(0.99, knee));
+  for(var i=0; i<n; i++){
+    var x = (i / (n - 1)) * 2 - 1;          // -1 .. 1
+    var ax = Math.abs(x), y;
+    if(ax <= k) y = ax;
+    else y = k + (1 - k) * Math.tanh((ax - k) / (1 - k));
+    curve[i] = (x < 0 ? -y : y);
+  }
+  return curve;
 }
 
 function makeDriveCurve(amount01){
@@ -1079,7 +2395,7 @@ function applyFX(type){
     FX.chorus.lfoR.frequency.setTargetAtTime((P.fx.chorus.rate / 100) * 1.3, ac.currentTime, 0.05);
     FX.chorus.lfoGL.gain.value = 0.006 * (P.fx.chorus.depth / 100);
     FX.chorus.lfoGR.gain.value = 0.006 * (P.fx.chorus.depth / 100);
-    FX.chorus.out.gain.value  = (P.fx.chorus.depth / 100) * 0.5;
+    FX.chorus.out.gain.value  = (P.fx.chorus.depth / 100) * 0.5 * VOY.mod.chorus;
   } else if(type === "drive"){
     FX.drive.shaper.curve = makeDriveCurve(P.fx.drive.amount / 100);
     FX.drive.out.gain.value = (P.fx.drive.amount / 100) * 0.4;
@@ -1093,6 +2409,10 @@ function elsysMacro(name,value){
     applyOcsLevels();
   }else if(name==='macro.b'){
     P.drift=200*v;P.fx.drive.amount=100*v;P.fx.chorus.rate=100*v;
+    // 「動き」のマクロに変異量と時間圧縮も乗せる（速く・荒くなる方向）
+    P.mutation=100*v;
+    P.timeScale=Math.round(400 - 300*v);     // v=0 で 400（ゆっくり）→ v=1 で 100
+    if(VOY.active) VOY.plan=voyagePlan(P.route, VOY.reversed);
     applyFX('drive');applyFX('chorus');
   }else if(name==='macro.c'){
     P.fx.depth.mix=100*v;P.fx.depth.size=100*v;P.fx.width.mix=100+100*v;P.fx.chorus.depth=100*v;
@@ -1117,17 +2437,36 @@ function ensure(){
   if(ac) return;
   ac = new (window.AudioContext || window.webkitAudioContext)();
   master = ac.createGain(); master.gain.value = 0.0001;
-  master.connect(ac.destination);
+
+  // 最終段の安全リミッタ。master の 1/12 減衰より**後**に置く（減衰前は
+  // 素の信号が 0dBFS を大きく超えているため、しきい値が意味を持たない）。
+  // 通常素材は -3dBFS 以下で動くので素通り、嵐＋雷＋FX全開の時だけ効く。
+  limiter = ac.createDynamicsCompressor();
+  limiter.threshold.value = -3;
+  limiter.knee.value      = 3;   // 膝を狭めて -4.5dBFS 以下は完全に素通り
+  limiter.ratio.value     = 30;  // 越えた分だけ強く抑える
+  limiter.attack.value    = 0.003;
+  limiter.release.value   = 0.25;
+  // リミッタの後の保険。knee(0.85) 以下は完全に素通りで、超えた分だけ
+   // tanh で丸めて 1.0 を越えさせない（雷のクラックのような 2ms の突起は
+   // コンプの attack 3ms をすり抜けるため、波形側で止める）。
+  softclip = ac.createWaveShaper();
+  softclip.curve = makeSoftClipCurve(0.85);
+  master.connect(limiter);
+  limiter.connect(softclip);
+  softclip.connect(ac.destination);
+
   masterPan = ac.createStereoPanner();
   masterPan.connect(master);
-  ann = ac.createAnalyser(); ann.fftSize = 1024; master.connect(ann);
+  // analyser は「実際に外へ出る音」を測るためリミッタ後に置く
+  ann = ac.createAnalyser(); ann.fftSize = 1024; softclip.connect(ann);
   abuf = new Float32Array(ann.fftSize);
 
   // 三層のオシレータ。海岸ほどステレオに広い
   // 海の色付けフィルタ：深海=暗く沈む LP、沖=中域に揺らぎ、海岸=低域カットで開く HP
-  OCS.ds  = setupOcs(P.ds.voices,  0.30, {type:"lowpass",  freq:900,  Q:0.8, lfoHz:0.05, lfoDepth:240});
-  OCS.oki = setupOcs(P.oki.voices, 0.55, {type:"lowpass",  freq:2400, Q:1.0, lfoHz:0.10, lfoDepth:700});
-  OCS.kg  = setupOcs(P.kg.voices,  0.85, {type:"highpass", freq:280,  Q:0.7});
+  OCS.ds  = setupOcs(P.ds.voices,  0.30, {type:"lowpass",  freq:900,  Q:0.8, lfoHz:0.05, lfoDepth:240}, "ds");
+  OCS.oki = setupOcs(P.oki.voices, 0.55, {type:"lowpass",  freq:2400, Q:1.0, lfoHz:0.10, lfoDepth:700}, "oki");
+  OCS.kg  = setupOcs(P.kg.voices,  0.85, {type:"highpass", freq:280,  Q:0.7, nonlinear:true}, "kg");
 
   setupAmbient();
   setupRain();
@@ -1143,6 +2482,51 @@ function ensure(){
     play: run, stop: halt,
     setParam: function(n, v){
       if(/^(macro\.[abc]|volume)$/.test(n)){ elsysMacro(n,v); return; }
+      // 和音：chordSize / chordShape.ds など
+      if(n === "chordSize"){ P.chordSize = +v; applyAllOcsChords(); syncUI(); return; }
+      // 航路と伝播
+      if(n === "tideRealtime"){
+        P.tideRealtime = !!(+v || v === true || v === "true");
+        tideUpdate(); syncUI(); return;
+      }
+      if(n === "route"){
+        var rid = String(v);
+        if(ROUTE_BY_ID[rid]){
+          P.route = rid;
+          P.currentAuto = true;
+          if(rid === "fixed"){ P.voyage = false; clearLayers(); applyAllOcsChords(); }
+          else if(P.voyage) voyageStart();
+          syncUI();
+        }
+        return;
+      }
+      if(n === "voyage"){
+        P.voyage = !!(+v || v === true || v === "true");
+        if(P.voyage && P.route !== "fixed") voyageStart();
+        else { voyageStop(); clearLayers(); applyAllOcsChords(); }
+        syncUI();
+        return;
+      }
+      if(typeof n === "string" && (n.indexOf("retention.") === 0 || n.indexOf("mixMode.") === 0)){
+        var pp = n.split("."), grp = pp[0], key = pp[1];
+        if(grp === "retention" && (key in P.retention)){
+          var rv = +v; P.retention[key] = rv > 1 ? rv/100 : rv;
+        } else if(grp === "mixMode" && (key in P.mixMode)){
+          var mv = String(v);
+          if(MIX_MODES.some(function(m){ return m.id === mv; })) P.mixMode[key] = mv;
+        }
+        syncUI();
+        return;
+      }
+      if(typeof n === "string" && n.indexOf("chordShape.") === 0){
+        var cs = n.split(".")[1];
+        if(P.chordShape && (cs in P.chordShape) && CHORD_SHAPE_IDS.indexOf(String(v)) >= 0){
+          P.chordShape[cs] = String(v);
+          applyOcsChord(cs);
+          syncUI();
+        }
+        return;
+      }
       // ds/oki/kg のパラメータ：ds.level, kg.octave など
       if(typeof n === "string" && /^(ds|oki|kg)\./.test(n)){
         var op = n.split(".");
@@ -1184,13 +2568,35 @@ function ensure(){
     getPreset: function(){ return JSON.parse(JSON.stringify(P)); },
     loadPreset: function(p){
       if(!p) return;
-      Object.assign(P, p);
+      // ① 全キーを既定へ戻す → ② preset を重ねる。
+      // これで「旧 preset を読めば Phase 1 と同じ挙動（route=固定・和音1本相当の既定）」になる。
+      deepMerge(P, JSON.parse(JSON.stringify(P_DEFAULTS)));
+      deepMerge(P, p);
+      clearLayers();
+      // preset で航海が切られていたら必ず止める（止め忘れると前の航路が
+      // 走り続けて、到着イベントが鳴り込んでしまう）
+      if(P.voyage && P.route !== "fixed") voyageStart();
+      else voyageStop();
       applyAllOcsChords();
       applyOcsLevels();
       ["depth","width","chorus","drive"].forEach(applyFX);
       syncUI();
     },
   });
+}
+
+// 旧 preset（seed や入れ子の一部が無い）を読んでも既定値が残るよう深く混ぜる
+function deepMerge(dst, src){
+  Object.keys(src || {}).forEach(function(k){
+    var v = src[k];
+    if(v && typeof v === "object" && !Array.isArray(v) &&
+       dst[k] && typeof dst[k] === "object" && !Array.isArray(dst[k])){
+      deepMerge(dst[k], v);
+    } else if(v !== undefined){
+      dst[k] = v;
+    }
+  });
+  return dst;
 }
 
 function applyMaster(){
@@ -1204,6 +2610,21 @@ async function run(){
   if(running) return;
   if(ac.state === "suspended") await ac.resume();
   running = true; t0 = ac.currentTime;
+  // 乱数系列の添字とログを巻き戻す。これで「同一 seed・同一操作」が同一結果になる。
+  TICK.ripples = 0; TICK.current = 0; TICK.drift = 0;
+  DRIFTN.ds = 0; DRIFTN.oki = 0; DRIFTN.kg = 0;
+  ["ds","oki","kg"].forEach(function(nm){ if(OCS[nm]) OCS[nm]._nextRotate = 0; });
+  EVLOG.clear();
+  EVLOG.push("start", { seed: P.seed, scale: P.scale, root: P.root,
+                        current: P.current, weather: P.weather,
+                        route: P.route, voyage: !!P.voyage });
+  // 航海も巻き戻す（同一 seed・同一操作で航海ログが一致するため）
+  clearLayers();
+  VOY.active = false; VOY.hop = 0; VOY.hops = 0;
+  VOY.reversed = false; VOY.branchIdx = -1; VOY.homogenizeBase = null;
+  CONFLUENCE.systems = []; CONFLUENCE.beats = [];
+  if(P.voyage && P.route !== "fixed") voyageStart();
+  else applyAllOcsChords();
   applyMaster();
   document.getElementById("run").classList.add("live");
   ripplesTick();currentTick();driftTick();startOceanClock();
@@ -1217,7 +2638,17 @@ function halt(){
   document.getElementById("run").classList.remove("live");
 }
 
-/* ── 描画（オシロ＋潮流パン位置）───────────────── */
+/* ═══════════════════════════════════════════════════════════════════
+   描画（設計 E）
+
+   左面を上から下へ：
+     ① 航路の地図（正距円筒投影・ノード・現在位置）
+     ② 三層の cents ルーラー（0-1200・由来ノードで色分け・核音は太線）
+     ③ 潮位曲線（直近数周期・上げ/下げ・大潮小潮）
+     ④ 波形（従来のオシロ・薄く）
+   変異ログは canvas ではなく DOM（読めること・選択できることを優先）。
+   ═══════════════════════════════════════════════════════════════════ */
+
 var cv = document.getElementById("scope");
 var cx = cv.getContext("2d");
 
@@ -1228,43 +2659,517 @@ function sizeCanvas(){
 }
 window.addEventListener("resize", sizeCanvas); sizeCanvas();
 
-function draw(){
-  var W = cv.clientWidth, H = cv.clientHeight;
-  cx.clearRect(0,0,W,H);
-  // 水平線（海面）
-  cx.strokeStyle = "rgba(214,210,196,.07)"; cx.lineWidth = 0.5;
-  cx.beginPath(); cx.moveTo(0,H/2); cx.lineTo(W,H/2); cx.stroke();
-  // 潮流の現在パン位置を縦縞で示す
+/* ── 由来ノードの色 ────────────────────────────────
+   ノード id から決まる固有色。同じノードは常に同じ色になる。          */
+var NODE_HUE = {};
+function nodeColor(nodeId, alpha){
+  if(!nodeId) return "rgba(214,210,196," + (alpha != null ? alpha : 1) + ")";
+  if(NODE_HUE[nodeId] == null){
+    // ノード id のハッシュから色相を決める（海の色域＝150〜260度に寄せる）
+    var h = hashStr(nodeId);
+    NODE_HUE[nodeId] = 150 + (h % 185);   // 青緑→青→紫→赤紫
+  }
+  return "hsla(" + NODE_HUE[nodeId] + ",52%,63%," + (alpha != null ? alpha : 1) + ")";
+}
+
+/* ── 領域の割り付け ──────────────────────────────── */
+function layout(W, H){
+  var pad = 20;
+  var top = 116;                      // physh（4行）の下から
+  var bottom = H - 56;                // 演奏ボタンの上まで
+  var avail = bottom - top;
+  if(avail < 200) return null;        // 狭すぎる時は波形だけ描く
+
+  // 下から順に必要な高さを確保し、残りを地図に回す（地図が主役）
+  var rulerH = 30, rulerGap = 6;
+  var rulersTotal = (rulerH + rulerGap) * 3 + 14;
+  var tideH  = 78;
+  var scopeH = Math.max(56, Math.min(104, avail * 0.14));
+  var mapBoxH = avail - rulersTotal - (tideH + 16) - scopeH - 28;
+  if(mapBoxH < 120){                  // 縦が足りない時は地図を諦めず全部を詰める
+    mapBoxH = Math.max(96, avail * 0.30);
+    scopeH  = Math.max(40, avail - rulersTotal - (tideH + 16) - mapBoxH - 28);
+  }
+
+  var y = top;
+  // 地図の枠は左 54%。実際の矩形は緯度経度の比で当てはめる（drawMap 側）
+  var map = { x:pad, y:y, w:Math.max(160, W * 0.54 - pad), h:mapBoxH };
+  y += mapBoxH + 22;
+
+  var rulers = { x:pad, y:y, w:W - pad*2, rowH:rulerH, gap:rulerGap };
+  y += rulersTotal;
+
+  var tide = { x:pad, y:y, w:W - pad*2, h:tideH };
+  y += tideH + 16;
+
+  var scope = { x:0, y:y, w:W, h:Math.max(30, bottom - y) };
+  return { map:map, rulers:rulers, tide:tide, scope:scope };
+}
+
+/* ── ① 地図 ──────────────────────────────────────── */
+function drawMap(r){
+  var route = ROUTE_BY_ID[P.route];
+  var ids = (route && route.path && route.path.length) ? route.path.slice() : null;
+  if(route && route.branches) route.branches.forEach(function(br){ ids = ids.concat(br.path); });
+  var shown = ids ? ids.map(function(id){ return NODE_BY_ID[id]; }).filter(Boolean) : (DATA.nodes || []);
+  if(!shown.length) return;
+
+  // 表示範囲を自動で合わせる（航路が見える大きさにする）
+  var lats = shown.map(function(n){ return n.lat; }), lons = shown.map(function(n){ return n.lon; });
+  var la0 = Math.min.apply(null, lats), la1 = Math.max.apply(null, lats);
+  var lo0 = Math.min.apply(null, lons), lo1 = Math.max.apply(null, lons);
+  var mLa = Math.max(4, (la1 - la0) * 0.22), mLo = Math.max(4, (lo1 - lo0) * 0.22);
+  la0 -= mLa; la1 += mLa; lo0 -= mLo; lo1 += mLo;
+  var dLo = Math.max(0.001, lo1 - lo0), dLa = Math.max(0.001, la1 - la0);
+
+  // 正距円筒投影は「1度＝1度」なので、枠の縦横比を度の比に合わせる。
+  // 渡された箱に収まる最大の矩形を取り、箱の中で中央に置く。
+  var box = r, aspect = dLo / dLa;
+  var w = box.w, h = w / aspect;
+  if(h > box.h){ h = box.h; w = h * aspect; }
+  r = { x: box.x, y: box.y + (box.h - h) / 2, w: w, h: h };
+
+  var proj = function(lat, lon){
+    return { x: r.x + (lon - lo0) / dLo * r.w,
+             y: r.y + (la1 - lat) / dLa * r.h };
+  };
+
+  // 枠と緯度経度の格子（10度ごと）
+  cx.strokeStyle = "rgba(214,210,196,.10)"; cx.lineWidth = 0.5;
+  cx.strokeRect(r.x, r.y, r.w, r.h);
+  cx.save(); cx.beginPath(); cx.rect(r.x, r.y, r.w, r.h); cx.clip();
+  cx.strokeStyle = "rgba(214,210,196,.05)";
+  for(var g = Math.ceil(lo0/10)*10; g <= lo1; g += 10){
+    var p = proj(la0, g); cx.beginPath(); cx.moveTo(p.x, r.y); cx.lineTo(p.x, r.y + r.h); cx.stroke();
+  }
+  for(var g2 = Math.ceil(la0/10)*10; g2 <= la1; g2 += 10){
+    var p2 = proj(g2, lo0); cx.beginPath(); cx.moveTo(r.x, p2.y); cx.lineTo(r.x + r.w, p2.y); cx.stroke();
+  }
+
+  // 航路の線
+  if(ids && route && route.path.length > 1){
+    cx.strokeStyle = "rgba(136,185,196,.30)"; cx.lineWidth = 1;
+    cx.beginPath();
+    route.path.forEach(function(id, i){
+      var n = NODE_BY_ID[id]; if(!n) return;
+      var p = proj(n.lat, n.lon);
+      if(i) cx.lineTo(p.x, p.y); else cx.moveTo(p.x, p.y);
+    });
+    cx.stroke();
+    // 分岐（オーストロネシア拡散など）
+    (route.branches || []).forEach(function(br){
+      var from = NODE_BY_ID[br.from]; if(!from) return;
+      cx.strokeStyle = "rgba(136,185,196,.18)";
+      cx.setLineDash([3,3]);
+      cx.beginPath();
+      var pf = proj(from.lat, from.lon); cx.moveTo(pf.x, pf.y);
+      br.path.forEach(function(id){ var n = NODE_BY_ID[id]; if(!n) return;
+        var p = proj(n.lat, n.lon); cx.lineTo(p.x, p.y); });
+      cx.stroke(); cx.setLineDash([]);
+    });
+  }
+
+  // ノード
+  cx.font = "9px " + MONO;
+  shown.forEach(function(n){
+    var p = proj(n.lat, n.lon);
+    // 層がその音階を持っているノードは強調する
+    var held = ["kg","oki","ds"].some(function(k){ return VOY.layer[k] && VOY.layer[k].node === n.id; });
+    cx.fillStyle = nodeColor(n.id, held ? 0.95 : 0.45);
+    var s = held ? 4 : 3;
+    cx.fillRect(p.x - s/2, p.y - s/2, s, s);
+    cx.fillStyle = "rgba(214,210,196," + (held ? 0.72 : 0.34) + ")";
+    cx.fillText(n.name, p.x + 6, p.y + 3);
+  });
+
+  // 現在の航海位置
+  var pos = VOY.active ? voyagePosition() : null;
+  if(pos){
+    var pc = proj(pos.lat, pos.lon);
+    cx.fillStyle = "rgba(136,185,196,.95)";
+    cx.beginPath(); cx.arc(pc.x, pc.y, 3.4, 0, Math.PI*2); cx.fill();
+    // 段階に応じた輪（漂流ほど大きい）
+    var ringR = 6 + (pos.phase === "drift" ? 7 : pos.phase === "land" ? 4 : 1);
+    cx.strokeStyle = "rgba(136,185,196,.35)"; cx.lineWidth = 1;
+    cx.beginPath(); cx.arc(pc.x, pc.y, ringR, 0, Math.PI*2); cx.stroke();
+  }
+  cx.restore();
+
+  // 見出し
+  cx.font = "9px " + MONO;
+  cx.fillStyle = "rgba(107,106,98,.85)";
+  var phaseTag = pos ? ("　" + ((VOY_PHASES[VOY.phaseIdx] || {}).label || "")) : "";
+  cx.fillText("航 路 ─ " + (route ? route.name : "─") + phaseTag, r.x, r.y - 6);
+}
+
+/* ── ② cents ルーラー ────────────────────────────── */
+var RULER_ROWS = [
+  { key:"kg",  label:"海 岸" },
+  { key:"oki", label:"沖" },
+  { key:"ds",  label:"深 海" }
+];
+
+function drawRulers(r){
+  cx.font = "9px " + MONO;
+  cx.fillStyle = "rgba(107,106,98,.85)";
+  cx.fillText("cents ル ー ラ ー ─ 0 〜 1200（縦線＝発音中の音／色＝由来ノード／太線＝核音）", r.x, r.y - 6);
+
+  var labelW = 42;
+  RULER_ROWS.forEach(function(row, ri){
+    var y = r.y + ri * (r.rowH + r.gap);
+    var x0 = r.x + labelW, w = r.w - labelW;
+    var sec = OCS[row.key];
+
+    cx.fillStyle = "rgba(107,106,98,.9)";
+    cx.fillText(row.label, r.x, y + r.rowH * 0.62);
+
+    // 目盛（200 cents ごと）
+    cx.strokeStyle = "rgba(214,210,196,.07)"; cx.lineWidth = 0.5;
+    for(var c = 0; c <= 1200; c += 200){
+      var xx = x0 + (c / 1200) * w;
+      cx.beginPath(); cx.moveTo(xx, y + 2); cx.lineTo(xx, y + r.rowH - 2); cx.stroke();
+    }
+    // 基線
+    cx.strokeStyle = "rgba(214,210,196,.12)";
+    cx.beginPath(); cx.moveTo(x0, y + r.rowH - 1); cx.lineTo(x0 + w, y + r.rowH - 1); cx.stroke();
+
+    // 核音枠（完全4度・5度）の位置を薄く示す
+    var lscale = getScale(layerScaleOf(row.key));
+    [lscale.frame, lscale.upperCore].forEach(function(cc){
+      if(cc == null) return;
+      var xx = x0 + (cc / 1200) * w;
+      cx.strokeStyle = "rgba(136,185,196,.10)"; cx.lineWidth = 3;
+      cx.beginPath(); cx.moveTo(xx, y + 3); cx.lineTo(xx, y + r.rowH - 3); cx.stroke();
+    });
+
+    if(!sec) return;
+    var K = chordSizeOf();
+    sec.voices.forEach(function(v){
+      for(var k=0; k<K && k<v.parts.length; k++){
+        var pt = v.parts[k];
+        if(pt.cents == null) continue;
+        var cmod = ((pt.cents % 1200) + 1200) % 1200;
+        var xx = x0 + (cmod / 1200) * w;
+        var scale = (pt.origin && pt.origin.scale) ? pt.origin.scale : layerScaleOf(row.key);
+        var core = isCoreCents(scale, pt.cents, 8);
+        cx.strokeStyle = nodeColor(pt.origin && pt.origin.node, core ? 0.88 : 0.5);
+        cx.lineWidth = core ? 2.2 : 1;
+        cx.beginPath();
+        cx.moveTo(xx, y + (core ? 2 : 6));
+        cx.lineTo(xx, y + r.rowH - 2);
+        cx.stroke();
+      }
+    });
+  });
+}
+
+/* ── ③ 潮位曲線 ──────────────────────────────────── */
+var TIDE_CACHE = { at:-1, series:null };
+function tideSeriesCached(n, span){
+  var now = (typeof performance !== "undefined") ? performance.now() : Date.now();
+  if(TIDE_CACHE.series && now - TIDE_CACHE.at < 250) return TIDE_CACHE.series;
+  var out = [], h0 = TIDEST.hours;
+  for(var i=0; i<n; i++){
+    var hh = h0 - span + span * (i / (n - 1));
+    out.push({ h: tideHeight(hh), sp: springIndexAt(hh) });
+  }
+  TIDE_CACHE.series = out; TIDE_CACHE.at = now;
+  return out;
+}
+
+function drawTide(r){
+  cx.font = "9px " + MONO;
+  cx.fillStyle = "rgba(107,106,98,.85)";
+  var spanH = M2.periodHours * 3;
+  var label = "潮 位 ─ 直近 " + (spanH).toFixed(1) + " 時間（M2 3 周期）";
+  if(tideAmp01() <= 0) label += "　※ 潮の効き 0（音には作用していない）";
+  cx.fillText(label, r.x, r.y - 6);
+
+  cx.strokeStyle = "rgba(214,210,196,.08)"; cx.lineWidth = 0.5;
+  cx.strokeRect(r.x, r.y, r.w, r.h);
+  var mid = r.y + r.h / 2;
+  cx.beginPath(); cx.moveTo(r.x, mid); cx.lineTo(r.x + r.w, mid); cx.stroke();
+
+  var s = tideSeriesCached(180, spanH);
+  // 大潮度を背景の濃さで示す。矩形を整数境界で並べないと端が重なって縞に見える。
+  for(var i=0; i<s.length-1; i++){
+    var xa = Math.round(r.x + (i     / (s.length-1)) * r.w);
+    var xb = Math.round(r.x + ((i+1) / (s.length-1)) * r.w);
+    if(xb <= xa) continue;
+    cx.fillStyle = "rgba(136,185,196," + (0.015 + s[i].sp * 0.050).toFixed(3) + ")";
+    cx.fillRect(xa, r.y + 1, xb - xa, r.h - 2);
+  }
+  // 曲線
+  cx.strokeStyle = "rgba(136,185,196,.6)"; cx.lineWidth = 1;
+  cx.beginPath();
+  s.forEach(function(p, i){
+    var x = r.x + (i / (s.length-1)) * r.w;
+    var y = mid - p.h * (r.h/2 - 3);
+    if(i) cx.lineTo(x, y); else cx.moveTo(x, y);
+  });
+  cx.stroke();
+  // 現在位置（右端）と上げ/下げ
+  var cxx = r.x + r.w - 1, cyy = mid - TIDEST.h * (r.h/2 - 3);
+  cx.fillStyle = "rgba(136,185,196,.95)";
+  cx.beginPath(); cx.arc(cxx, cyy, 2.6, 0, Math.PI*2); cx.fill();
+  cx.fillStyle = "rgba(207,204,192,.75)";
+  var sp = TIDEST.spring;
+  var tag = (TIDEST.flood ? "↑ 上げ潮" : "↓ 下げ潮")
+          + "　" + (sp > 0.72 ? "大潮" : sp < 0.28 ? "小潮" : "中潮")
+          + " " + (sp*100).toFixed(0) + "%";
+  cx.fillText(tag, r.x + 6, r.y + 12);
+}
+
+/* ── ④ 波形 ──────────────────────────────────────── */
+function drawScope(r){
+  if(!ann) return;
+  ann.getFloatTimeDomainData(abuf);
+  var mid = r.y + r.h / 2;
+  cx.strokeStyle = "rgba(136,185,196,.38)"; cx.lineWidth = 1;
+  cx.beginPath();
+  for(var i=0; i<abuf.length; i++){
+    var x = i / abuf.length * r.w, y = mid + abuf[i] * r.h * 0.46;
+    if(i) cx.lineTo(x, y); else cx.moveTo(x, y);
+  }
+  cx.stroke();
+  // 潮流の現在パン位置
   if(masterPan){
     var pp = (masterPan.pan.value + 1) / 2;
     cx.fillStyle = "rgba(136,185,196,.12)";
-    cx.fillRect(pp * W - 1, 0, 2, H);
+    cx.fillRect(pp * r.w - 1, r.y, 2, r.h);
   }
-  // 波形
-  if(ann){
-    ann.getFloatTimeDomainData(abuf);
-    cx.strokeStyle = "rgba(136,185,196,.55)"; cx.lineWidth = 1;
-    cx.beginPath();
-    for(var i=0;i<abuf.length;i++){
-      var x = i/abuf.length*W, y = H/2 + abuf[i]*H*0.42;
-      if(i) cx.lineTo(x,y); else cx.moveTo(x,y);
-    }
-    cx.stroke();
+}
+
+var MONO = '"SFMono-Regular",ui-monospace,"DejaVu Sans Mono",monospace';
+
+function draw(){
+  var W = cv.clientWidth, H = cv.clientHeight;
+  cx.clearRect(0,0,W,H);
+  var L = layout(W, H);
+  if(!L){
+    // 狭い時は従来通り波形だけ
+    drawScope({ x:0, y:0, w:W, h:H });
+  } else {
+    drawMap(L.map);
+    drawRulers(L.rulers);
+    drawTide(L.tide);
+    drawScope(L.scope);
   }
   requestAnimationFrame(draw);
 }
 requestAnimationFrame(draw);
 
+/* ── 変異ログ（DOM・直近20件）──────────────────────
+   何がいつどこで起きたかを、読める日本語で残す。                    */
+var LOGVIEW = { lastSeq: -1 };
+
+function mutationLine(e){
+  var d = e.data;
+  if(e.type === "hop"){
+    var r = ROUTE_BY_ID[d.route], rn = r ? r.name : d.route;
+    var fn = NODE_BY_ID[d.from] ? NODE_BY_ID[d.from].name : d.from;
+    var tn = NODE_BY_ID[d.to]   ? NODE_BY_ID[d.to].name   : d.to;
+    var muts = (d.mutations || []).map(function(m){
+      var side = m.side === "lower" ? "下テトラコルド中間音"
+               : m.side === "upper" ? "上テトラコルド中間音"
+               : m.side === "extra" ? "枠外音"
+               : m.side === "degree" ? (m.index != null ? "第" + m.index + "音" : "音")
+               : m.side === "inner" ? "可動音"
+               : m.side;
+      if(m.kind === "shift") return side + " " + (m.delta >= 0 ? "+" : "") + m.delta + "c (" + m.from + "→" + m.to + ")";
+      if(m.kind === "drop")  return side + " 脱落 (" + m.cents + "c)";
+      if(m.kind === "add")   return side + " 付加 (" + m.cents + "c)";
+      if(m.kind === "frame") return "核音枠 " + m.from + "→" + m.to + "c";
+      if(m.kind === "pull")  return side + " " + m.from + "→" + m.to + "c（" + m.target + "c へ寄る）";
+      return m.kind;
+    });
+    var tideTag = d.tide ? ("　潮 " + (d.tide.spring > 0.72 ? "大潮" : d.tide.spring < 0.28 ? "小潮" : "中潮")
+                            + " 変異量" + (d.tide.amount*100).toFixed(0) + "%") : "";
+    return rn + " #" + d.hop + " " + fn + "→" + tn + "：" + (muts.length ? muts.join(" / ") : "変異なし") + tideTag;
+  }
+  if(e.type === "arrive"){
+    var nm = { kg:"海岸", oki:"沖", ds:"深海" }[d.ocs] || d.ocs;
+    var node = NODE_BY_ID[d.node] ? NODE_BY_ID[d.node].name : d.node;
+    if(d.mode === "replace")
+      return "　→ " + nm + " 受信 @" + node + " 置換 保持" + (+d.retention).toFixed(2)
+           + "（残" + d.kept + "／入替" + d.swapped + "）";
+    return "　→ " + nm + " 受信 @" + node + " 補間 保持" + (+d.retention).toFixed(2)
+         + "（到達 t=" + d.tTarget + "）";
+  }
+  if(e.type === "morph-done"){
+    var nm2 = { kg:"海岸", oki:"沖", ds:"深海" }[d.ocs] || d.ocs;
+    var ev = (d.events || []).map(function(m){
+      return (m.kind === "add" ? "付加" : "脱落") + (m.applied ? "" : "(未適用)") + " " + m.cents + "c"; });
+    return "　→ " + nm2 + " 補間完了 t=" + d.t + (ev.length ? "　" + ev.join(" / ") : "");
+  }
+  if(e.type === "voyage-start") return "── 出航 " + (ROUTE_BY_ID[d.route] ? ROUTE_BY_ID[d.route].name : d.route)
+                                     + "（" + d.legs + "脚 / " + d.totalSec.toFixed(1) + "秒 / 出発 " + d.startScale + "）";
+  if(e.type === "voyage-end")   return "── 着（" + d.hops + "ホップ）";
+  if(e.type === "voyage-loop")  return "── 環流：始点へ戻る（" + d.hops + "ホップ）";
+  if(e.type === "voyage-stop")  return "── 航海停止";
+  return null;
+}
+
+function renderLog(){
+  var host = document.getElementById("mutlog");
+  if(!host) return;
+  if(EVLOG.seq === LOGVIEW.lastSeq) return;
+  LOGVIEW.lastSeq = EVLOG.seq;
+  var lines = [];
+  for(var i=EVLOG.entries.length-1; i>=0 && lines.length<20; i--){
+    var t = mutationLine(EVLOG.entries[i]);
+    if(t) lines.push(t);
+  }
+  if(!lines.length){ host.innerHTML = '<span class="dimmed">変異ログ ─ 航海を始めると記録されます</span>'; return; }
+  host.innerHTML = lines.map(function(t){
+    return '<div class="' + (/^──/.test(t) ? "ev" : (/^　→/.test(t) ? "sub" : "hop")) + '">'
+         + t.replace(/&/g,"&amp;").replace(/</g,"&lt;") + '</div>';
+  }).join("");
+}
+setInterval(renderLog, 400);
+renderLog();
+
+/* ── 航海ログの書き出し（楽譜として再現可能にする）──── */
+function exportLog(){
+  return {
+    format: "ocean-voyage-log/1",
+    exportedAt: new Date().toISOString(),
+    dataVersion: DATA.version || null,
+    // これだけあれば同じ航海を再現できる
+    seed: P.seed,
+    params: JSON.parse(JSON.stringify(P)),
+    route: P.route,
+    plan: voyagePlan(P.route).legs.map(function(l){
+      return { hop:l.hop, from:l.from, to:l.to, km:+l.km.toFixed(3),
+               days:+l.days.toFixed(4), sec:+l.sec.toFixed(4) };
+    }),
+    tide: { m2PeriodSec: TIDE_M2_SEC_AT_100 * Math.max(1,P.timeScale)/100,
+            springBeatDays: springBeatDays(),
+            constituents: CONSTITS },
+    season: { phase:+seasonPhase().toFixed(4), dir:seasonDir(), label:seasonLabel(),
+              yearSec: SEASON_YEAR_SEC * Math.max(1,P.timeScale)/100 },
+    confluence: (CONFLUENCE.systems || []).length ? {
+      systems: CONFLUENCE.systems.map(function(x){
+        return { route:x.routeName, node:x.node, scale:getScale(x.scale).name,
+                 cents:scaleCents(x.scale) }; }),
+      beats: CONFLUENCE.beats
+    } : null,
+    homogenize: P.homogenize,
+    layers: ["kg","oki","ds"].map(function(n){
+      var Lr = VOY.layer[n];
+      return { ocs:n, node: Lr && Lr.node, mode: Lr && Lr.mode,
+               scale: Lr ? getScale(Lr.scale).name : null,
+               cents: Lr ? scaleCents(Lr.scale) : null };
+    }),
+    log: EVLOG.entries
+  };
+}
+
+function downloadLog(){
+  var obj = exportLog();
+  var blob = new Blob([JSON.stringify(obj, null, 1)], { type:"application/json" });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  var stamp = new Date().toISOString().replace(/[:.]/g,"-").slice(0,19);
+  a.href = url;
+  a.download = "ocean-voyage-" + P.route + "-seed" + P.seed + "-" + stamp + ".json";
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+  if(DEBUG) console.log("[ocean] 航海ログを書き出しました", obj);
+}
+
 /* ── 物理表示 ─────────────────────────────────── */
+function fmtSec(x){
+  if(!isFinite(x) || x < 0) return "─";
+  var m = Math.floor(x / 60), ss = Math.round(x % 60);
+  return m > 0 ? (m + "分" + ("0"+ss).slice(-2) + "秒") : (ss + "秒");
+}
+
 function readout(){
   var w = weatherProfile();
+  var layerLine = "";
+  var rConf = ROUTE_BY_ID[P.route];
+  if(rConf && rConf.confluence && CONFLUENCE.systems.length >= 2){
+    layerLine = "<br>合流 " + CONFLUENCE.systems.map(function(x, i){
+      return "系統" + (i === 0 ? "A" : "B") + " <b>" + getScale(x.scale).name + "</b>@"
+           + (NODE_BY_ID[x.node] ? NODE_BY_ID[x.node].name : "─");
+    }).join(" ／ ") + "　（声を交互に割り当て・±30c はうなりとして残す）";
+  } else if(P.route !== "fixed"){
+    layerLine = "<br>層 " + ["kg","oki","ds"].map(function(n){
+      var L = VOY.layer[n], nm = { kg:"海岸", oki:"沖", ds:"深海" }[n];
+      if(!L) return nm + " <b>─</b>";
+      var node = L.node && NODE_BY_ID[L.node] ? NODE_BY_ID[L.node].name : "─";
+      return nm + " <b>" + getScale(L.scale).name + "</b>@" + node;
+    }).join(" ／ ");
+  }
   document.getElementById("physh").innerHTML =
     "音階 <b>"+P.scale+"</b> ・基音 <b>"+P.root+"</b> Hz<br>" +
     "潮流 <b>"+P.current+"</b> ・天候 <b>"+P.weather+"</b><br>" +
-    "うねり <b>"+(w.swell*100).toFixed(0)+"%</b> ・打 <b>"+w.chap.toFixed(1)+"</b> ・転調 <b>"+w.rotate.toFixed(2)+"</b>";
+    "うねり <b>"+(w.swell*100).toFixed(0)+"%</b> ・打 <b>"+w.chap.toFixed(1)+"</b> ・転調 <b>"+w.rotate.toFixed(2)+"</b>" +
+    layerLine;
+
+  // 潮汐の readout
+  var te = document.getElementById("tideReadout");
+  if(te){
+    if(tideAmp01() <= 0){
+      te.innerHTML = "切（潮汐の影響なし）";
+    } else {
+      var m2sec = TIDE_M2_SEC_AT_100 * Math.max(1, P.timeScale) / 100;
+      var beatSec = m2sec * (springBeatDays() * 24 / M2.periodHours);
+      var sp = TIDEST.spring;
+      var spLabel = sp > 0.72 ? "大 潮" : (sp < 0.28 ? "小 潮" : "中 潮");
+      te.innerHTML =
+        "<b>" + (TIDEST.h >= 0 ? "+" : "") + TIDEST.h.toFixed(2) + "</b>"
+        + " ・" + (TIDEST.flood ? "上げ潮（流入）" : "下げ潮（流出）")
+        + " ・<b>" + spLabel + "</b> " + (sp*100).toFixed(0) + "%"
+        + "<br>M2 " + fmtSec(m2sec) + "／周期"
+        + " ・大潮小潮＝M2×S2 の<b>うなり</b> " + springBeatDays().toFixed(2) + "日 = " + fmtSec(beatSec)
+        + (P.tideRealtime ? ("<br>実時間：月齢 " + (moonAge01(Date.now())*29.53).toFixed(1) + "日") : "");
+    }
+  }
+
+  // 航海の readout
+  var el = document.getElementById("voyReadout");
+  if(el){
+    var rr2 = ROUTE_BY_ID[P.route];
+    var plan = voyagePlan(P.route, VOY.reversed);
+    if(rr2 && rr2.confluence){
+      var ss = CONFLUENCE.systems || [];
+      el.innerHTML = ss.length >= 2
+        ? ("合流 <b>" + ss[0].routeName + "</b> × <b>" + ss[1].routeName + "</b>"
+           + "　うなり " + (CONFLUENCE.beats || []).length + "対"
+           + ((CONFLUENCE.beats || []).length
+              ? ("（" + CONFLUENCE.beats.slice(0,3).map(function(x){ return x.beatHz + "Hz"; }).join(" / ") + "）")
+              : ""))
+        : "潮目（演奏を始めると二系統が立ちます）";
+    } else if(rr2 && rr2.homogenizing){
+      el.innerHTML = "赤潮 ─ 停滞と同化　均質化 <b>" + Math.round(P.homogenize) + "%</b>"
+                   + "（12平均律グリッドへの吸着率）";
+    } else if(!plan.legs.length){
+      el.innerHTML = "固定（伝播なし）";
+    } else if(!VOY.active){
+      el.innerHTML = plan.legs.length + "脚 ・一航海 <b>" + fmtSec(plan.totalSec) + "</b>（未出航）";
+    } else {
+      var pos = voyagePosition();
+      el.innerHTML = (pos ? (NODE_BY_ID[pos.leg.from].name + "→" + NODE_BY_ID[pos.leg.to].name) : "")
+        + " <b>" + (pos ? pos.phaseLabel : "") + "</b>"
+        + " ・#" + (Math.min(VOY.hop, plan.legs.length - 1) + 1) + "/" + plan.legs.length
+        + (VOY.hops >= plan.legs.length ? ("（通算" + (VOY.hops + 1) + "）") : "")
+        + " ・残 <b>" + fmtSec(pos ? pos.remainSec : 0) + "</b>"
+        + " ／全 " + fmtSec(plan.totalSec)
+        + (rr2 && rr2.seasonal ? ("<br>" + seasonLabel()) : "")
+        + (VOY.plan && VOY.plan.branch ? "<br>分岐を航行中" : "")
+        + (rr2 && rr2.loop ? "<br>環流（終点から始点へ戻る）" : "");
+    }
+  }
 }
 
 /* ── UI ─────────────────────────────────────────── */
+var MIX_MODES = [
+  { id:"replace", label:"置 換" },   // partial 単位で入れ替わる＝ヘテロフォニー
+  { id:"morph",   label:"補 間" }    // cents 上を滑る＝マイクロトーナルに移行
+];
+
 var OCS_DEFS = [
   { key:"ds",  name:"深 海 ─ 低 中 域" },
   { key:"oki", name:"沖 ─ 中 域" },
@@ -1296,6 +3201,20 @@ function renderOcs(){
         + '<span class="val" id="o_'+def.key+'_'+prm.key+'V">'+v+'</span>'
         + '</div>';
     });
+    // 伝播：保持率（旧音階が残る割合）と混交モード
+    var retV = Math.round((P.retention[def.key] != null ? P.retention[def.key] : 0.5) * 100);
+    html += '<div class="row">'
+      + '<span class="k">保持率</span>'
+      + '<input type="range" id="o_'+def.key+'_ret" min="0" max="100" value="'+retV+'">'
+      + '<span class="val" id="o_'+def.key+'_retV">'+retV+'</span>'
+      + '</div>';
+    html += '<div class="row">'
+      + '<span class="k">混交</span>'
+      + '<select id="o_'+def.key+'_mix">'
+      + MIX_MODES.map(function(m){
+          return '<option value="'+m.id+'"'+(m.id===P.mixMode[def.key]?' selected':'')+'>'+m.label+'</option>';
+        }).join('')
+      + '</select></div>';
     html += '</div></div>';
   });
   host.innerHTML = html;
@@ -1349,6 +3268,34 @@ function syncUI(){
   document.getElementById("weatherSel").value = P.weather;
   document.getElementById("drift").value = P.drift;
   document.getElementById("driftV").textContent = P.drift;
+  document.getElementById("tideAmp").value = P.tideAmp;
+  document.getElementById("tideAmpV").textContent = P.tideAmp;
+  var tr = document.getElementById("tideRealtime"); if(tr) tr.checked = !!P.tideRealtime;
+  var rs = document.getElementById("routeSel"); if(rs) rs.value = P.route;
+  var vy = document.getElementById("voyage");  if(vy) vy.checked = !!P.voyage;
+  document.getElementById("timeScale").value = P.timeScale;
+  document.getElementById("timeScaleV").textContent = P.timeScale;
+  document.getElementById("mutation").value = P.mutation;
+  document.getElementById("mutationV").textContent = P.mutation;
+  document.getElementById("lag").value = P.lag;
+  document.getElementById("lagV").textContent = P.lag;
+  document.getElementById("homogenize").value = Math.round(P.homogenize);
+  document.getElementById("homogenizeV").textContent = Math.round(P.homogenize);
+  ["ds","oki","kg"].forEach(function(nm){
+    var re = document.getElementById("o_"+nm+"_ret");
+    var rv = document.getElementById("o_"+nm+"_retV");
+    var val = Math.round((P.retention[nm] != null ? P.retention[nm] : 0.5) * 100);
+    if(re) re.value = val;
+    if(rv) rv.textContent = val;
+    var me = document.getElementById("o_"+nm+"_mix");
+    if(me) me.value = P.mixMode[nm];
+  });
+  document.getElementById("chordSize").value = chordSizeOf();
+  document.getElementById("chordSizeV").textContent = chordSizeOf();
+  ["ds","oki","kg"].forEach(function(nm){
+    var e = document.getElementById("chordShape_" + nm);
+    if(e) e.value = chordShapeOf(nm);
+  });
   document.getElementById("rain").value = P.rain;
   document.getElementById("rainV").textContent = P.rain;
   document.getElementById("thunder").value = P.thunder;
@@ -1389,7 +3336,8 @@ function bindUI(){
   }).join("");
   ssel.addEventListener("change", function(){
     P.scale = ssel.value;
-    if(ac) applyAllOcsChords();
+    // 航海中に音階を選び直したら「場を撒き直す」＝層の由来を捨てて出発点に戻す
+    if(ac){ clearLayers(); applyAllOcsChords(); }
     readout();
   });
 
@@ -1400,6 +3348,7 @@ function bindUI(){
   }).join("");
   csel.addEventListener("change", function(){
     P.current = csel.value;
+    P.currentAuto = false;          // 手で選んだら航路の panFn を上書きする
     readout();
   });
 
@@ -1433,11 +3382,74 @@ function bindUI(){
       readout();
     });
   }
+  // 航路
+  var rsel = document.getElementById("routeSel");
+  rsel.innerHTML = ROUTE_NAMES.map(function(r){
+    return '<option value="'+r.id+'"'+(r.id===P.route?' selected':'')+'>'+r.name+'</option>';
+  }).join("");
+  rsel.addEventListener("change", function(){
+    P.route = rsel.value;
+    P.currentAuto = true;           // 航路を選び直したら panFn の自動適用に戻す
+    if(P.route === "fixed"){ P.voyage = false; if(ac){ clearLayers(); applyAllOcsChords(); } }
+    else if(P.voyage && ac){ voyageStart(); }
+    syncUI(); readout();
+  });
+  var trt = document.getElementById("tideRealtime");
+  trt.addEventListener("change", function(){
+    P.tideRealtime = trt.checked;
+    if(ac) tideUpdate();
+    readout();
+  });
+
+  var vchk = document.getElementById("voyage");
+  vchk.addEventListener("change", function(){
+    P.voyage = vchk.checked;
+    if(!ac){ return; }
+    if(P.voyage && P.route !== "fixed") voyageStart();
+    else {
+      voyageStop(); clearLayers();
+      VOY.homogenizeBase = null;
+      applyAllOcsChords();
+    }
+    readout();
+  });
+
+  // 和音：本数と積み方
+  var csz = document.getElementById("chordSize");
+  csz.addEventListener("input", function(){
+    P.chordSize = +csz.value;
+    document.getElementById("chordSizeV").textContent = chordSizeOf();
+    if(ac) applyAllOcsChords();
+  });
+  ["ds","oki","kg"].forEach(function(nm){
+    var e = document.getElementById("chordShape_" + nm);
+    if(!e) return;
+    e.innerHTML = CHORD_SHAPES.map(function(c){
+      return '<option value="'+c.id+'"'+(c.id===chordShapeOf(nm)?' selected':'')+'>'+c.label+'</option>';
+    }).join("");
+    e.addEventListener("change", function(){
+      P.chordShape[nm] = e.value;
+      if(ac) applyOcsChord(nm);
+    });
+  });
+
   bindRange("master",       "master",       true);
   bindRange("root",          "root",          false, function(){ if(ac) applyAllOcsChords(); });
   bindRange("currentDepth",  "currentDepth",  false);
   bindRange("drift",         "drift",         false);
   bindRange("rain",          "rain",          false, function(){ if(ac) applyRain(); });
+  bindRange("timeScale",     "timeScale",     false, function(){
+    if(VOY.active) VOY.plan = voyagePlan(P.route);   // 脚の長さを再計算
+  });
+  bindRange("tideAmp",       "tideAmp",       false, function(){
+    if(ac){ tideUpdate(); applyTideToShore(); applyOcsLevels(); }
+  });
+  bindRange("mutation",      "mutation",      false);
+  bindRange("lag",           "lag",           false);
+  bindRange("homogenize",    "homogenize",    false, function(){
+    VOY.homogenizeBase = P.homogenize;      // 手で動かしたらそこを起点にする
+    if(ac) applyAllOcsChords();
+  });
   bindRange("thunder",       "thunder",       false);
 
   // OCS パネル
@@ -1452,6 +3464,17 @@ function bindUI(){
         if(ac) applyOcsLevels();
       });
     }
+    // 保持率
+    var re = document.getElementById("o_"+def.key+"_ret");
+    if(re) re.addEventListener("input", function(){
+      P.retention[def.key] = (+re.value) / 100;
+      var rv = document.getElementById("o_"+def.key+"_retV");
+      if(rv) rv.textContent = re.value;
+    });
+    // 混交モード
+    var me = document.getElementById("o_"+def.key+"_mix");
+    if(me) me.addEventListener("change", function(){ P.mixMode[def.key] = me.value; });
+
     OCS_PARAMS.forEach(function(prm){
       var e = document.getElementById("o_"+def.key+"_"+prm.key);
       var v = document.getElementById("o_"+def.key+"_"+prm.key+"V");
@@ -1483,9 +3506,82 @@ function bindUI(){
 
   document.getElementById("run").onclick  = run;
   document.getElementById("halt").onclick = halt;
+  var dl = document.getElementById("dllog");
+  if(dl) dl.onclick = downloadLog;
 }
 bindUI(); syncUI();
 if(FIELD_ON) ensure();
+
+// ?debug：内部を露出する（Phase E で航海ログの JSON 書き出しに使う）
+if(DEBUG){
+  window.__OCEAN = {
+    P: P, DATA: DATA, EVLOG: EVLOG, TICK: TICK, DRIFTN: DRIFTN,
+    centsAt: centsAt, scaleCents: scaleCents, centsToFreq: centsToFreq,
+    scaleFreqs: scaleFreqs, morphScale: morphScale,
+    coreCentsOf: coreCentsOf, isCoreCents: isCoreCents,
+    rngFor: rngFor, getScale: getScale, SCALE_NAMES: SCALE_NAMES,
+    OCS: OCS, ocsRoot: ocsRoot,
+    voiceFreqs: function(){
+      var o = {};
+      ["ds","oki","kg"].forEach(function(n){
+        o[n] = OCS[n] ? OCS[n].voices.map(function(v){ return v.osc.frequency.value; }) : null;
+      });
+      return o;
+    },
+    chordSizeOf: chordSizeOf, chordShapeOf: chordShapeOf, partialCents: partialCents,
+    // 各層の和音を「声 × partial」で見る（cents と Hz と 由来）
+    chords: function(){
+      var o = {};
+      ["ds","oki","kg"].forEach(function(n){
+        var sec = OCS[n]; if(!sec){ o[n] = null; return; }
+        o[n] = { shape: chordShapeOf(n), root: ocsRoot(n), voices: sec.voices.map(function(v){
+          return { degree: v.degree, parts: v.parts.map(function(pt){
+            return { k: pt.k, cents: pt.cents != null ? Math.round(pt.cents*100)/100 : null,
+                     hz: Math.round(pt.osc.frequency.value*1000)/1000,
+                     gain: Math.round(pt.gain.gain.value*10000)/10000,
+                     origin: pt.origin };
+          })};
+        })};
+      });
+      return o;
+    },
+    TIDEST: TIDEST, tideHeight: tideHeight, tideSlope: tideSlope, tideHoursAt: tideHoursAt,
+    tideHoursPerSec: tideHoursPerSec, springIndexAt: springIndexAt, springBeatDays: springBeatDays,
+    moonSpringIndex: moonSpringIndex, moonAge01: moonAge01, tideGate: tideGate,
+    effRetention: effRetention, effMutation: effMutation, effLag: effLag,
+    plannedTideAt: plannedTideAt, plannedHopSeconds: plannedHopSeconds,
+    swellHzFor: swellHzFor, detuneHzFor: detuneHzFor, CONSTITS: CONSTITS,
+    tideUpdate: tideUpdate, applyTideToShore: applyTideToShore,
+    // 潮位の系列（Phase E の曲線描画で使う）
+    tideSeries: function(nPoints, spanHours){
+      var out = [], n = nPoints || 200, span = spanHours || (M2.periodHours * 3);
+      var h0 = TIDEST.hours;
+      for(var i=0; i<n; i++){
+        var hh = h0 - span + span * (i / (n - 1));
+        out.push({ hours: hh, h: tideHeight(hh), spring: springIndexAt(hh) });
+      }
+      return out;
+    },
+    shoreShaperMix: function(){ return OCS.kg && OCS.kg.shaperMix ? OCS.kg.shaperMix.gain.value : null; },
+    shoreHP: function(){ return OCS.kg ? OCS.kg.color.frequency.value : null; },
+    VOY: VOY, voyagePlan: voyagePlan, voyagePosition: voyagePosition,
+    voyageStart: voyageStart, voyageStop: voyageStop, voyageTick: voyageTick,
+    mutateScale: mutateScale, layerScaleOf: layerScaleOf, clearLayers: clearLayers,
+    haversineKm: haversineKm, NODE_BY_ID: NODE_BY_ID, ROUTE_BY_ID: ROUTE_BY_ID,
+    limiterReduction: function(){ return limiter ? limiter.reduction : null; },
+    softclip: function(){ return softclip; },
+    CONFLUENCE: CONFLUENCE, applyConfluence: applyConfluence,
+    homogenizeCents: homogenizeCents, akashioTick: akashioTick,
+    seasonPhase: seasonPhase, seasonDir: seasonDir, seasonLabel: seasonLabel,
+    routePan: routePan, currentPan: currentPan, ROUTE_NAMES: ROUTE_NAMES,
+    exportLog: exportLog, downloadLog: downloadLog, nodeColor: nodeColor,
+    mutationLine: mutationLine, renderLog: renderLog, layout: layout,
+    limiter: function(){ return limiter; }
+  };
+  console.log("[ocean] debug hook: window.__OCEAN");
+}
+
+setInterval(function(){ if(running && (P.route !== "fixed" || tideAmp01() > 0)) readout(); }, 500);
 
 setInterval(function(){
   var clk = document.getElementById("clock");
