@@ -276,8 +276,8 @@
      panFn は潮流パンの軌跡 id（処理側が実装）。                            */
   var ROUTES = [
     {
-      id: "fixed", name: "固定", path: [], speed: 0, seasonal: false, panFn: "none",
-      note: "従来動作。P.scale を三層で共有し、伝播も変異も起きない。後方互換のための既定値。", source: ""
+      id: "fixed", name: "固定", path: [], speed: 0, seasonal: false, panFn: "none", hidden: true,
+      note: "後方互換のためだけに残す（UI には出さない）。旧 preset / 場API が route=fixed を送ってきたら「最初の航路に停泊」として扱う。音階は航路のノードからしか来ない。", source: ""
     },
     {
       id: "kuroshio", name: "黒潮",
@@ -374,7 +374,7 @@
   };
 
   root.OCEAN_DATA = {
-    version: 3,
+    version: 4,
     time: TIME,
     constants: { justFourthCents: C_JUST_4TH, justFifthCents: C_JUST_5TH, phi: PHI },
     tetrachords: TETRACHORDS,

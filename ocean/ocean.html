@@ -81,7 +81,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:9px;
 <div class="frame">
   <header class="bar">
     <span class="mark">OCEAN</span>
-    <span class="sub">海 ─ 三 層 の 和 音 と 潮 流</span>
+    <span class="sub">海 ─ 潮 が 運 ぶ 地 政 学 的 和 音</span>
     <span class="clock" id="clock">--:--</span>
   </header>
 
@@ -116,12 +116,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:9px;
       </div>
 
       <div class="panel">
-        <div class="ph">音 階 ─ 民 族 ・ 物 理</div>
+        <div class="ph">揺 ら ぎ ─ 音 階 内 の 声 の 入 れ 替 え</div>
         <div class="body">
-          <div class="row">
-            <span class="k">音階</span>
-            <select id="scaleSel"></select>
-          </div>
           <div class="row">
             <span class="k">転調速</span>
             <input type="range" id="drift" min="0" max="200" value="60">
@@ -590,7 +586,7 @@ function currentPan(t){
   var c = P.current;
   var d = P.currentDepth / 100;
   // 航路を選んでいて、潮流を手で触っていなければ航路の panFn を使う
-  if(P.currentAuto && P.route !== "fixed"){
+  if(P.currentAuto){
     var r = ROUTE_BY_ID[P.route];
     if(r && r.panFn) return routePan(r.panFn, t, d);
   }
@@ -633,7 +629,7 @@ var running=false, schedTimer=null, t0=0;
 var P = {
   master: 0.65,
   root: 110,                       // 基音 Hz
-  scale: "ヒラジョシ",
+  scale: "ヒラジョシ",              // 未使用。旧 preset / 場API との互換のために残すだけ（音階はノードからしか来ない）
   current: "黒潮", currentDepth: 60,
   weather: "さざ波",
   rain: 0,                         // 雨の強度（持続するノイズ層）0-100
@@ -647,9 +643,9 @@ var P = {
   // 積み方（層ごと）：cores=核音和音 / stack=音階内堆積 / cluster=隣接クラスタ / harmonic=倍音
   chordShape: { ds:"cores", oki:"stack", kg:"cluster" },
 
-  // 航路と伝播（設計 C）。route="fixed" なら従来通り P.scale を三層で共有する。
-  route: "fixed",
-  voyage: false,                   // 航海の ON/OFF
+  // 航路と伝播（設計 C）。音階の出どころは航路のノードだけ。
+  route: "kuroshio",               // 最初の航路。音階の出どころは航路のノードだけ
+  voyage: true,                    // 航海の ON/OFF（OFF＝出発地に停泊し、その土地の音階を鳴らす）
   timeScale: 100,                  // 時間圧縮（%）。100 で「1日 = 6 秒」
   retention: { ds:0.8, oki:0.5, kg:0.2 },   // 旧音階が残る割合
   lag: 8,                          // 層間の遅延（秒）。kg → oki → ds
@@ -850,7 +846,7 @@ function applyVoiceChord(ocsName, voiceIdx, timeConst){
     var pt = v.parts[k];
     var on = (k < K);
     if(on){
-      // 由来（partial 個別）→ 層が持つ音階 → P.scale の順に解決する
+      // 由来（partial 個別）→ 層が持つ音階 → 出発地の音階 の順に解決する
       var scale = (pt.origin && pt.origin.scale) ? pt.origin.scale : layerScaleOf(ocsName);
       var cents = homogenizeCents(partialCents(sh, scale, v.degree, k));
       pt.cents = cents;
@@ -1023,9 +1019,42 @@ var VOY = {
   hops: 0
 };
 
+// 音階の出どころは航路のノードだけ。層がまだ何も持っていない時は出発地の音階。
+function firstRouteId(){
+  for(var i=0; i<(DATA.routes||[]).length; i++){
+    var r = DATA.routes[i];
+    if(r.id !== "fixed" && r.path && r.path.length) return r.id;
+  }
+  return null;
+}
+// route=fixed（旧 preset / 場API）は「最初の航路に停泊」に読み替える
+function normalizeRoute(){
+  if(!ROUTE_BY_ID[P.route] || P.route === "fixed"){
+    P.route = firstRouteId() || P.route;
+    if(P.route === "fixed" || !ROUTE_BY_ID[P.route]) return;
+    P.voyage = false;
+  }
+}
+function departureNodeId(){
+  var r = ROUTE_BY_ID[P.route];
+  return (r && r.path && r.path.length) ? r.path[0] : null;
+}
+function baseScale(){
+  var id = departureNodeId();
+  var nd = id ? NODE_BY_ID[id] : null;
+  if(nd && nd.scale) return nd.scale;
+  // 航路もノードも無い異常時だけ、データの最初の音階
+  return (DATA.scales && DATA.scales[0]) ? DATA.scales[0].name : "都節";
+}
 function layerScaleOf(ocsName){
   var L = VOY.layer[ocsName];
-  return (L && L.scale) ? L.scale : P.scale;
+  return (L && L.scale) ? L.scale : baseScale();
+}
+// 停泊：出発地の土地の音階を三層に撒く
+function berth(){
+  var id = departureNodeId();
+  seedLayers(baseScale(), id, "berth");
+  if(ac) applyAllOcsChords();
 }
 
 // 三層と全 partial に同じ音階を撒く（出航時・音階を選び直した時）
@@ -1231,7 +1260,7 @@ function applyConfluence(){
     var r2 = ROUTE_BY_ID[rid];
     var endId = (r2 && r2.path && r2.path.length) ? r2.path[r2.path.length-1] : null;
     var nd = endId ? NODE_BY_ID[endId] : null;
-    var base = (nd && nd.scale) ? nd.scale : P.scale;
+    var base = (nd && nd.scale) ? nd.scale : baseScale();
     var R = rngFor("confluence", P.route + ":" + rid + ":" + si);
     var mu = mutateScale(base, R, (P.mutation || 0) / 100, "潮目 " + rid);
     return { routeId: rid, routeName: r2 ? r2.name : rid, node: endId,
@@ -1333,10 +1362,9 @@ function voyageStart(){
   VOY.legT0 = ac ? ac.currentTime : 0;
   VOY.legProg = 0; VOY.lastTick = VOY.legT0;
   VOY.pending.length = 0;
-  // 積み荷＝音階セレクタで選んだ音階（P.scale）。出発地で「あなたが持っている音階」を
-  // 三層に撒き、これが潮に乗って各ノードの土地の音階と混交・変異していく。
-  // 出発ノード自身の音階は混ぜない（そこにいる自分の音階＝P.scale と見なす）。
-  var s0 = P.scale;
+  // 積み荷＝出発地の土地の音階。選択音階は無い。以後は各ノードの土地の音階との
+  // 混交と変異だけで和音が決まる（純粋に地政学的）。
+  var s0 = (NODE_BY_ID[plan.legs[0].from] && NODE_BY_ID[plan.legs[0].from].scale) || baseScale();
   seedLayers(s0, plan.legs[0].from, "cargo");
   if(ac) applyAllOcsChords();
   EVLOG.push("voyage-start", { route:VOY.routeId, legs:plan.legs.length,
@@ -1491,7 +1519,7 @@ function onVoyagePhase(phase, leg, now){
     applyOcsLevels(); applyFX("chorus");
 
     var dest = NODE_BY_ID[leg.to];
-    var nodeScale = (dest && dest.scale) ? dest.scale : P.scale;
+    var nodeScale = (dest && dest.scale) ? dest.scale : baseScale();
     // 運搬されてきた音階（表層＝海岸が今持っているもの）と土地の音階を半々に混ぜ、
     // その混合に変異を掛ける。こうすると変異が累積し、環流で「変異した音階の帰還」が
     // 起きる。ブレンド率は 0.5 固定（土地と旅の力を等価に置く）。
@@ -2513,16 +2541,21 @@ function ensure(){
         if(ROUTE_BY_ID[rid]){
           P.route = rid;
           P.currentAuto = true;
-          if(rid === "fixed"){ P.voyage = false; clearLayers(); applyAllOcsChords(); }
+          normalizeRoute();                       // fixed → 最初の航路に停泊
+          var ra = ROUTE_BY_ID[P.route];
+          if(ra && ra.confluence) applyConfluence();
           else if(P.voyage) voyageStart();
+          else berth();
           syncUI();
         }
         return;
       }
       if(n === "voyage"){
         P.voyage = !!(+v || v === true || v === "true");
-        if(P.voyage && P.route !== "fixed") voyageStart();
-        else { voyageStop(); clearLayers(); applyAllOcsChords(); }
+        var rb = ROUTE_BY_ID[P.route];
+        if(rb && rb.confluence) applyConfluence();
+        else if(P.voyage) voyageStart();
+        else { voyageStop(); berth(); }
         syncUI();
         return;
       }
@@ -2573,14 +2606,8 @@ function ensure(){
       if(!(n in P)) return;
       if(typeof P[n] === "string"){
         P[n] = String(v);
-        if(n === "scale"){
-          if(VOY.active && VOY.plan){
-            var hereN = VOY.plan.legs[Math.min(VOY.hop, VOY.plan.legs.length-1)].from;
-            seedLayers(P.scale, hereN, "cargo");
-            EVLOG.push("cargo-change", { at: hereN, cargo: P.scale, hop: VOY.hops });
-          } else clearLayers();
-          applyAllOcsChords();
-        }
+        // scale は後方互換のため受け取るだけ（音階はノードからしか来ない）
+        if(n === "scale"){ /* 無視 */ }
         if(n === "weather") applyOcsLevels();
       } else {
         var nv = +v;
@@ -2599,10 +2626,13 @@ function ensure(){
       deepMerge(P, JSON.parse(JSON.stringify(P_DEFAULTS)));
       deepMerge(P, p);
       clearLayers();
+      normalizeRoute();
       // preset で航海が切られていたら必ず止める（止め忘れると前の航路が
       // 走り続けて、到着イベントが鳴り込んでしまう）
-      if(P.voyage && P.route !== "fixed") voyageStart();
-      else voyageStop();
+      var rp = ROUTE_BY_ID[P.route];
+      if(rp && rp.confluence) applyConfluence();
+      else if(P.voyage) voyageStart();
+      else { voyageStop(); berth(); }
       applyAllOcsChords();
       applyOcsLevels();
       ["depth","width","chorus","drive"].forEach(applyFX);
@@ -2641,7 +2671,7 @@ async function run(){
   DRIFTN.ds = 0; DRIFTN.oki = 0; DRIFTN.kg = 0;
   ["ds","oki","kg"].forEach(function(nm){ if(OCS[nm]) OCS[nm]._nextRotate = 0; });
   EVLOG.clear();
-  EVLOG.push("start", { seed: P.seed, scale: P.scale, root: P.root,
+  EVLOG.push("start", { seed: P.seed, departure: departureNodeId(), baseScale: getScale(baseScale()).name, root: P.root,
                         current: P.current, weather: P.weather,
                         route: P.route, voyage: !!P.voyage });
   // 航海も巻き戻す（同一 seed・同一操作で航海ログが一致するため）
@@ -2649,8 +2679,11 @@ async function run(){
   VOY.active = false; VOY.hop = 0; VOY.hops = 0;
   VOY.reversed = false; VOY.branchIdx = -1; VOY.homogenizeBase = null;
   CONFLUENCE.systems = []; CONFLUENCE.beats = [];
-  if(P.voyage && P.route !== "fixed") voyageStart();
-  else applyAllOcsChords();
+  normalizeRoute();
+  var rr0 = ROUTE_BY_ID[P.route];
+  if(rr0 && rr0.confluence) applyConfluence();
+  else if(P.voyage) voyageStart();
+  else berth();
   applyMaster();
   document.getElementById("run").classList.add("live");
   ripplesTick();currentTick();driftTick();startOceanClock();
@@ -2900,7 +2933,7 @@ function drawRulers(r){
 
     // 右端：この層が今鳴らしている音階＠ノード
     var Lr = VOY.layer[row.key];
-    var tag = (P.route === "fixed" || !Lr)
+    var tag = (!Lr)
       ? getScale(layerScaleOf(row.key)).name
       : getScale(Lr.scale).name + " @ " + (Lr.node && NODE_BY_ID[Lr.node] ? NODE_BY_ID[Lr.node].name : "─");
     cx.font = "9px " + MONO;
@@ -2939,7 +2972,7 @@ function drawRulers(r){
         for(var k=0; k<K2 && k<v.parts.length; k++){
           var o = v.parts[k].origin || {};
           var id = o.node || "";
-          var key = id + "|" + (o.scale ? getScale(o.scale).name : (P.route === "fixed" ? P.scale : ""));
+          var key = id + "|" + (o.scale ? getScale(o.scale).name : getScale(baseScale()).name);
           if(!tally[key]){ tally[key] = { node:id, scale:key.split("|")[1], n:0 }; order.push(key); }
           tally[key].n++;
         }
@@ -2951,7 +2984,7 @@ function drawRulers(r){
     cx.fillText("由来", r.x, ly);
     order.forEach(function(key){
       var t = tally[key];
-      var name = (t.node && NODE_BY_ID[t.node] ? NODE_BY_ID[t.node].name : (t.node || "選択音階"));
+      var name = (t.node && NODE_BY_ID[t.node] ? NODE_BY_ID[t.node].name : (t.node || "出発地"));
       var text = name + "・" + (t.scale || "─") + " ×" + t.n;
       var tw = cx.measureText(text).width;
       if(lx + 12 + tw > r.x + r.w) return;           // 入りきらない分は省く
@@ -3196,7 +3229,7 @@ function readout(){
       return "系統" + (i === 0 ? "A" : "B") + " <b>" + getScale(x.scale).name + "</b>@"
            + (NODE_BY_ID[x.node] ? NODE_BY_ID[x.node].name : "─");
     }).join(" ／ ") + "　（声を交互に割り当て・±30c はうなりとして残す）";
-  } else if(P.route !== "fixed"){
+  } else {
     layerLine = "<br>層 " + ["kg","oki","ds"].map(function(n){
       var L = VOY.layer[n], nm = { kg:"海岸", oki:"沖", ds:"深海" }[n];
       if(!L) return nm + " <b>─</b>";
@@ -3205,7 +3238,8 @@ function readout(){
     }).join(" ／ ");
   }
   document.getElementById("physh").innerHTML =
-    "音階 <b>"+P.scale+"</b> ・基音 <b>"+P.root+"</b> Hz<br>" +
+    "出発地 <b>"+(NODE_BY_ID[departureNodeId()] ? NODE_BY_ID[departureNodeId()].name : "─")+"</b>"
+    + "（"+getScale(baseScale()).name+"）・基音 <b>"+P.root+"</b> Hz<br>" +
     "潮流 <b>"+P.current+"</b> ・天候 <b>"+P.weather+"</b><br>" +
     "うねり <b>"+(w.swell*100).toFixed(0)+"%</b> ・打 <b>"+w.chap.toFixed(1)+"</b> ・転調 <b>"+w.rotate.toFixed(2)+"</b>" +
     layerLine;
@@ -3248,9 +3282,10 @@ function readout(){
       el.innerHTML = "赤潮 ─ 停滞と同化　均質化 <b>" + Math.round(P.homogenize) + "%</b>"
                    + "（12平均律グリッドへの吸着率）";
     } else if(!plan.legs.length){
-      el.innerHTML = "固定（伝播なし）";
+      el.innerHTML = "航路に脚がありません";
     } else if(!VOY.active){
-      el.innerHTML = plan.legs.length + "脚 ・一航海 <b>" + fmtSec(plan.totalSec) + "</b>（未出航）";
+      el.innerHTML = plan.legs.length + "脚 ・一航海 <b>" + fmtSec(plan.totalSec) + "</b>"
+                   + (P.voyage ? "（着）" : "（停泊 ・出発地 " + (NODE_BY_ID[plan.legs[0].from]||{}).name + "）");
     } else {
       var pos = voyagePosition();
       el.innerHTML = (pos ? (NODE_BY_ID[pos.leg.from].name + "→" + NODE_BY_ID[pos.leg.to].name) : "")
@@ -3363,7 +3398,6 @@ function syncUI(){
   document.getElementById("masterV").textContent = Math.round(P.master * 100);
   document.getElementById("root").value = P.root;
   document.getElementById("rootV").textContent = P.root;
-  document.getElementById("scaleSel").value = P.scale;
   document.getElementById("currentSel").value = P.current;
   document.getElementById("currentDepth").value = P.currentDepth;
   document.getElementById("currentDepthV").textContent = P.currentDepth;
@@ -3431,27 +3465,6 @@ function syncUI(){
 }
 
 function bindUI(){
-  // 音階
-  var ssel = document.getElementById("scaleSel");
-  ssel.innerHTML = SCALE_NAMES.map(function(s){
-    return '<option value="'+s+'"'+(s===P.scale?' selected':'')+'>'+s+'</option>';
-  }).join("");
-  ssel.addEventListener("change", function(){
-    P.scale = ssel.value;
-    // 航海中に音階を選び直したら「積み荷を積み替える」＝今いる位置から新しい音階で続ける
-    if(ac){
-      if(VOY.active && VOY.plan){
-        var here = VOY.plan.legs[Math.min(VOY.hop, VOY.plan.legs.length-1)].from;
-        seedLayers(P.scale, here, "cargo");
-        EVLOG.push("cargo-change", { at: here, cargo: P.scale, hop: VOY.hops });
-      } else {
-        clearLayers();
-      }
-      applyAllOcsChords();
-    }
-    readout();
-  });
-
   // 潮流
   var csel = document.getElementById("currentSel");
   csel.innerHTML = CURRENT_NAMES.map(function(s){
@@ -3495,14 +3508,19 @@ function bindUI(){
   }
   // 航路
   var rsel = document.getElementById("routeSel");
-  rsel.innerHTML = ROUTE_NAMES.map(function(r){
-    return '<option value="'+r.id+'"'+(r.id===P.route?' selected':'')+'>'+r.name+'</option>';
-  }).join("");
+  rsel.innerHTML = ROUTE_NAMES.filter(function(r){ return !(ROUTE_BY_ID[r.id] && ROUTE_BY_ID[r.id].hidden); })
+    .map(function(r){
+      return '<option value="'+r.id+'"'+(r.id===P.route?' selected':'')+'>'+r.name+'</option>';
+    }).join("");
   rsel.addEventListener("change", function(){
     P.route = rsel.value;
     P.currentAuto = true;           // 航路を選び直したら panFn の自動適用に戻す
-    if(P.route === "fixed"){ P.voyage = false; if(ac){ clearLayers(); applyAllOcsChords(); } }
-    else if(P.voyage && ac){ voyageStart(); }
+    if(ac){
+      var rx = ROUTE_BY_ID[P.route];
+      if(rx && rx.confluence) applyConfluence();
+      else if(P.voyage) voyageStart();
+      else berth();
+    }
     syncUI(); readout();
   });
   var trt = document.getElementById("tideRealtime");
@@ -3516,11 +3534,13 @@ function bindUI(){
   vchk.addEventListener("change", function(){
     P.voyage = vchk.checked;
     if(!ac){ return; }
-    if(P.voyage && P.route !== "fixed") voyageStart();
+    var rv = ROUTE_BY_ID[P.route];
+    if(rv && rv.confluence){ applyConfluence(); }
+    else if(P.voyage) voyageStart();
     else {
-      voyageStop(); clearLayers();
+      voyageStop();
       VOY.homogenizeBase = null;
-      applyAllOcsChords();
+      berth();                      // 停泊＝出発地の土地の音階
     }
     readout();
   });
@@ -3620,6 +3640,7 @@ function bindUI(){
   var dl = document.getElementById("dllog");
   if(dl) dl.onclick = downloadLog;
 }
+normalizeRoute();
 bindUI(); syncUI();
 if(FIELD_ON) ensure();
 
@@ -3692,7 +3713,7 @@ if(DEBUG){
   console.log("[ocean] debug hook: window.__OCEAN");
 }
 
-setInterval(function(){ if(running && (P.route !== "fixed" || tideAmp01() > 0)) readout(); }, 500);
+setInterval(function(){ if(running) readout(); }, 500);
 
 setInterval(function(){
   var clk = document.getElementById("clock");
