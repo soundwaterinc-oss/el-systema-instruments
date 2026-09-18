@@ -1028,6 +1028,18 @@ function layerScaleOf(ocsName){
   return (L && L.scale) ? L.scale : P.scale;
 }
 
+// 三層と全 partial に同じ音階を撒く（出航時・音階を選び直した時）
+function seedLayers(scale, nodeId, mode){
+  ["ds","oki","kg"].forEach(function(n){
+    VOY.layer[n] = { scale: scale, node: nodeId || null, mode: mode || "seed" };
+    VOY.morphing[n] = null;
+    var sec = OCS[n]; if(!sec) return;
+    sec.voices.forEach(function(v){ v.parts.forEach(function(pt){
+      pt.origin = { node: nodeId || null, scale: scale }; }); });
+  });
+  VOY.pending.length = 0;
+}
+
 // 層と partial の由来を全部消す（航路=固定に戻す＝従来動作）
 function clearLayers(){
   ["ds","oki","kg"].forEach(function(n){
@@ -1321,20 +1333,15 @@ function voyageStart(){
   VOY.legT0 = ac ? ac.currentTime : 0;
   VOY.legProg = 0; VOY.lastTick = VOY.legT0;
   VOY.pending.length = 0;
-  // 出発地の音階を全層の初期値にする
-  var startNode = NODE_BY_ID[plan.legs[0].from];
-  var s0 = (startNode && startNode.scale) ? startNode.scale : P.scale;
-  ["ds","oki","kg"].forEach(function(n){
-    VOY.layer[n] = { scale: s0, node: plan.legs[0].from, mode:"start" };
-    VOY.morphing[n] = null;
-    var sec = OCS[n]; if(!sec) return;
-    sec.voices.forEach(function(v){ v.parts.forEach(function(pt){
-      pt.origin = { node: plan.legs[0].from, scale: s0 }; }); });
-  });
+  // 積み荷＝音階セレクタで選んだ音階（P.scale）。出発地で「あなたが持っている音階」を
+  // 三層に撒き、これが潮に乗って各ノードの土地の音階と混交・変異していく。
+  // 出発ノード自身の音階は混ぜない（そこにいる自分の音階＝P.scale と見なす）。
+  var s0 = P.scale;
+  seedLayers(s0, plan.legs[0].from, "cargo");
   if(ac) applyAllOcsChords();
   EVLOG.push("voyage-start", { route:VOY.routeId, legs:plan.legs.length,
                                totalSec:+plan.totalSec.toFixed(2),
-                               startNode:plan.legs[0].from, startScale:getScale(s0).name });
+                               startNode:plan.legs[0].from, cargo:getScale(s0).name });
 }
 
 function voyageStop(){
@@ -2566,7 +2573,14 @@ function ensure(){
       if(!(n in P)) return;
       if(typeof P[n] === "string"){
         P[n] = String(v);
-        if(n === "scale") applyAllOcsChords();
+        if(n === "scale"){
+          if(VOY.active && VOY.plan){
+            var hereN = VOY.plan.legs[Math.min(VOY.hop, VOY.plan.legs.length-1)].from;
+            seedLayers(P.scale, hereN, "cargo");
+            EVLOG.push("cargo-change", { at: hereN, cargo: P.scale, hop: VOY.hops });
+          } else clearLayers();
+          applyAllOcsChords();
+        }
         if(n === "weather") applyOcsLevels();
       } else {
         var nv = +v;
@@ -2694,7 +2708,8 @@ function layout(W, H){
 
   // 下から順に必要な高さを確保し、残りを地図に回す（地図が主役）
   var rulerH = 30, rulerGap = 6;
-  var rulersTotal = (rulerH + rulerGap) * 3 + 14;
+  var legendH = 22;                                   // 由来の凡例（今鳴っているノード）
+  var rulersTotal = (rulerH + rulerGap) * 3 + 14 + legendH;
   var tideH  = 78;
   var scopeH = Math.max(56, Math.min(104, avail * 0.14));
   var mapBoxH = avail - rulersTotal - (tideH + 16) - scopeH - 28;
@@ -2708,7 +2723,8 @@ function layout(W, H){
   var map = { x:pad, y:y, w:Math.max(160, W * 0.54 - pad), h:mapBoxH };
   y += mapBoxH + 22;
 
-  var rulers = { x:pad, y:y, w:W - pad*2, rowH:rulerH, gap:rulerGap };
+  var rulers = { x:pad, y:y, w:W - pad*2, rowH:rulerH, gap:rulerGap,
+                 legendY: y + (rulerH + rulerGap) * 3 + 2, legendH: legendH };
   y += rulersTotal;
 
   var tide = { x:pad, y:y, w:W - pad*2, h:tideH };
@@ -2794,7 +2810,27 @@ function drawMap(r){
     cx.fillText(n.name, p.x + 6, p.y + 3);
   });
 
-  // 現在の航海位置
+  // 三層が「どのノードの音階」を鳴らしているかをタグで示す
+  // （同じノードに複数の層があれば縦に積む）
+  var tagAt = {};
+  [["kg","海岸"],["oki","沖"],["ds","深海"]].forEach(function(pair){
+    var Lr = VOY.layer[pair[0]];
+    if(!Lr || !Lr.node || !NODE_BY_ID[Lr.node]) return;
+    var nd = NODE_BY_ID[Lr.node], pp = proj(nd.lat, nd.lon);
+    var k = (tagAt[Lr.node] = (tagAt[Lr.node] || 0) + 1);
+    var ty = pp.y + 12 + (k - 1) * 11;
+    var label = pair[1] + " " + getScale(Lr.scale).name;
+    cx.font = "9px " + MONO;
+    var tw = cx.measureText(label).width + 8;
+    cx.fillStyle = "rgba(7,7,8,.72)";
+    cx.fillRect(pp.x - 4, ty - 8, tw, 11);
+    cx.fillStyle = nodeColor(Lr.node, 0.95);
+    cx.fillRect(pp.x - 4, ty - 8, 2, 11);
+    cx.fillStyle = "rgba(207,204,192,.92)";
+    cx.fillText(label, pp.x + 1, ty + 1);
+  });
+
+  // 現在の航海位置と積み荷（＝海岸が今運んでいる音階）
   var pos = VOY.active ? voyagePosition() : null;
   if(pos){
     var pc = proj(pos.lat, pos.lon);
@@ -2804,6 +2840,14 @@ function drawMap(r){
     var ringR = 6 + (pos.phase === "drift" ? 7 : pos.phase === "land" ? 4 : 1);
     cx.strokeStyle = "rgba(136,185,196,.35)"; cx.lineWidth = 1;
     cx.beginPath(); cx.arc(pc.x, pc.y, ringR, 0, Math.PI*2); cx.stroke();
+    var cargo = "▶ 積み荷 " + getScale(layerScaleOf("kg")).name;
+    cx.font = "9px " + MONO;
+    var cw = cx.measureText(cargo).width + 8;
+    // ノード名（右横）や層タグ（下）と重ならないよう、船の左上に置く
+    var cxL = pc.x - cw - 8, cyL = pc.y - 22;
+    if(cxL < r.x + 2) cxL = pc.x + 8;
+    cx.fillStyle = "rgba(7,7,8,.78)"; cx.fillRect(cxL, cyL - 8, cw, 11);
+    cx.fillStyle = "rgba(136,185,196,.95)"; cx.fillText(cargo, cxL + 4, cyL + 1);
   }
   cx.restore();
 
@@ -2854,6 +2898,17 @@ function drawRulers(r){
       cx.beginPath(); cx.moveTo(xx, y + 3); cx.lineTo(xx, y + r.rowH - 3); cx.stroke();
     });
 
+    // 右端：この層が今鳴らしている音階＠ノード
+    var Lr = VOY.layer[row.key];
+    var tag = (P.route === "fixed" || !Lr)
+      ? getScale(layerScaleOf(row.key)).name
+      : getScale(Lr.scale).name + " @ " + (Lr.node && NODE_BY_ID[Lr.node] ? NODE_BY_ID[Lr.node].name : "─");
+    cx.font = "9px " + MONO;
+    cx.fillStyle = Lr && Lr.node ? nodeColor(Lr.node, 0.9) : "rgba(207,204,192,.55)";
+    cx.textAlign = "right";
+    cx.fillText(tag, x0 + w - 2, y + 9);
+    cx.textAlign = "left";
+
     if(!sec) return;
     var K = chordSizeOf();
     sec.voices.forEach(function(v){
@@ -2873,6 +2928,40 @@ function drawRulers(r){
       }
     });
   });
+
+  // 凡例：今鳴っている partial の由来ノード（色＝ノード、×本数）
+  if(r.legendY){
+    var tally = {}, order = [];
+    var K2 = chordSizeOf();
+    ["kg","oki","ds"].forEach(function(n){
+      var sec2 = OCS[n]; if(!sec2) return;
+      sec2.voices.forEach(function(v){
+        for(var k=0; k<K2 && k<v.parts.length; k++){
+          var o = v.parts[k].origin || {};
+          var id = o.node || "";
+          var key = id + "|" + (o.scale ? getScale(o.scale).name : (P.route === "fixed" ? P.scale : ""));
+          if(!tally[key]){ tally[key] = { node:id, scale:key.split("|")[1], n:0 }; order.push(key); }
+          tally[key].n++;
+        }
+      });
+    });
+    var lx = r.x + labelW, ly = r.legendY + 12;
+    cx.font = "9px " + MONO;
+    cx.fillStyle = "rgba(107,106,98,.85)";
+    cx.fillText("由来", r.x, ly);
+    order.forEach(function(key){
+      var t = tally[key];
+      var name = (t.node && NODE_BY_ID[t.node] ? NODE_BY_ID[t.node].name : (t.node || "選択音階"));
+      var text = name + "・" + (t.scale || "─") + " ×" + t.n;
+      var tw = cx.measureText(text).width;
+      if(lx + 12 + tw > r.x + r.w) return;           // 入りきらない分は省く
+      cx.fillStyle = nodeColor(t.node || null, 0.95);
+      cx.fillRect(lx, ly - 7, 7, 7);
+      cx.fillStyle = "rgba(207,204,192,.8)";
+      cx.fillText(text, lx + 11, ly);
+      lx += 11 + tw + 16;
+    });
+  }
 }
 
 /* ── ③ 潮位曲線 ──────────────────────────────────── */
@@ -3015,7 +3104,8 @@ function mutationLine(e){
     return "　→ " + nm2 + " 補間完了 t=" + d.t + (ev.length ? "　" + ev.join(" / ") : "");
   }
   if(e.type === "voyage-start") return "── 出航 " + (ROUTE_BY_ID[d.route] ? ROUTE_BY_ID[d.route].name : d.route)
-                                     + "（" + d.legs + "脚 / " + d.totalSec.toFixed(1) + "秒 / 出発 " + d.startScale + "）";
+                                     + "（" + d.legs + "脚 / " + d.totalSec.toFixed(1) + "秒 / 積み荷 " + (d.cargo || d.startScale) + "）";
+  if(e.type === "cargo-change") return "── 積み替え @" + (NODE_BY_ID[d.at] ? NODE_BY_ID[d.at].name : d.at) + "：" + d.cargo;
   if(e.type === "voyage-end")   return "── 着（" + d.hops + "ホップ）";
   if(e.type === "voyage-loop")  return "── 環流：始点へ戻る（" + d.hops + "ホップ）";
   if(e.type === "voyage-stop")  return "── 航海停止";
@@ -3348,8 +3438,17 @@ function bindUI(){
   }).join("");
   ssel.addEventListener("change", function(){
     P.scale = ssel.value;
-    // 航海中に音階を選び直したら「場を撒き直す」＝層の由来を捨てて出発点に戻す
-    if(ac){ clearLayers(); applyAllOcsChords(); }
+    // 航海中に音階を選び直したら「積み荷を積み替える」＝今いる位置から新しい音階で続ける
+    if(ac){
+      if(VOY.active && VOY.plan){
+        var here = VOY.plan.legs[Math.min(VOY.hop, VOY.plan.legs.length-1)].from;
+        seedLayers(P.scale, here, "cargo");
+        EVLOG.push("cargo-change", { at: here, cargo: P.scale, hop: VOY.hops });
+      } else {
+        clearLayers();
+      }
+      applyAllOcsChords();
+    }
     readout();
   });
 
