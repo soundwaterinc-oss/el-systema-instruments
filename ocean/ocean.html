@@ -446,7 +446,7 @@ function morphScale(a, b, t, label){
     if(ia.length !== ib.length){
       var longer = (ia.length > ib.length) ? ia : ib;
       var fromA  = (ia.length > ib.length);
-      var keep   = fromA ? (tt < 0.5) : (tt >= 0.5);
+      var keep   = fromA ? (tt <= 0.5) : (tt >= 0.5);   // 0.5 ちょうどは両方残す（混交）
       for(var j=n; j<longer.length; j++){
         if(keep) out.push(longer[j]);
         events.push({ kind: fromA ? "drop" : "add", side: side, cents: Math.round(longer[j]*10)/10, applied: fromA ? !keep : keep });
@@ -466,7 +466,7 @@ function morphScale(a, b, t, label){
       for(var k=0; k<nx; k++) ex.push(lerp(exA[k], exB[k]));
       if(exA.length !== exB.length){
         var lg = exA.length > exB.length ? exA : exB, fa = exA.length > exB.length;
-        var kp = fa ? (tt < 0.5) : (tt >= 0.5);
+        var kp = fa ? (tt <= 0.5) : (tt >= 0.5);           // 同上（枠外音＝積み荷）
         for(var m=nx; m<lg.length; m++){
           if(kp) ex.push(lg[m]);
           events.push({ kind: fa ? "drop" : "add", side: "extra", cents: Math.round(lg[m]*10)/10, applied: fa ? !kp : kp });
@@ -532,7 +532,7 @@ function morphScale(a, b, t, label){
   for(var i2=0; i2<n2; i2++) out2.push(lerp(ca[i2], cb[i2]));
   if(ca.length !== cb.length){
     var lgr = ca.length > cb.length ? ca : cb, fromA2 = ca.length > cb.length;
-    var keep2 = fromA2 ? (tt < 0.5) : (tt >= 0.5);
+    var keep2 = fromA2 ? (tt <= 0.5) : (tt >= 0.5);
     for(var j2=n2; j2<lgr.length; j2++){
       if(keep2) out2.push(lgr[j2]);
       events.push({ kind: fromA2 ? "drop" : "add", side: "degree", cents: Math.round(lgr[j2]*10)/10, applied: fromA2 ? !keep2 : keep2 });
@@ -564,7 +564,14 @@ function routePan(panFn, t, d){
     case "gyre":     base = Math.cos(t * 0.18) * 0.65; break;
     case "shiome":   base = (Math.sin(t * 0.5) * 0.45 + Math.sin(t * 0.71) * 0.35); break;
     case "akashio":  base = Math.sin(t * 0.04) * 0.22; break;
-    default:         base = 0;
+    case "gulf":     base = Math.sin(t * 0.08) * 0.88; break;   // 潮流セレクタの「湾流」と同じ軌跡
+    default: {
+      // データだけで足した航路（未知の panFn id）でも成り立つよう、id から
+      // 決まる緩い二重正弦を使う。ocean.html を触らずに航路を増やせる。
+      var hh = hashStr(String(panFn || "none"));
+      var f1 = 0.05 + (hh % 13) * 0.01, f2 = 0.11 + ((hh >> 4) % 11) * 0.02;
+      base = (panFn && panFn !== "none") ? (Math.sin(t * f1) * 0.5 + Math.sin(t * f2) * 0.3) : 0;
+    }
   }
   // 現在地の経度を航路の経度範囲に正規化して -1..1 に写す
   var pos = VOY.active ? voyagePosition() : null;
@@ -1077,7 +1084,12 @@ function mutateScale(scale, R, amount01, tag){
       return nv;
     });
 
-    // ② 脱落／付加（七音⇄五音）
+    // ② 脱落／付加（七音⇄五音）。枠外音（積み荷）も脱落の候補に入れる。
+    if(tet.extra && tet.extra.length && R() < 0.12 * amt){
+      var xi = ri(R, tet.extra.length);
+      var xd = tet.extra.splice(xi, 1)[0];
+      events.push({ kind:"drop", side:"extra", cents:Math.round(xd*10)/10 });
+    }
     if(R() < 0.28 * amt){
       var side2 = (R() < 0.5) ? "lower" : "upper";
       var arr = tet[side2].inner;

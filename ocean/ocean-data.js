@@ -154,6 +154,29 @@
       source: "小泉文夫（1958）"
     },
 
+    /* ── 大西洋（湾流の航路のために追加）──────────────────────── */
+    {
+      name: "ドリアン", mode: "octave", cents: [0, 200, 300, 500, 700, 900, 1000],
+      frame: 500, upperCore: 700, join: "disjunct",
+      tetra: { lower: { inner: [200, 300] }, upper: { inner: [200, 300] } },
+      note: "上下ともに 0-200-300-500（＝アラブの Nahawand と同型）。アイルランド／アパラチアの旋法的民謡に多い。ケルト系の実演は6音・5音の核に還元されることが多く、7音への還元は仮説。",
+      source: ""
+    },
+    {
+      name: "ミクソリディア", mode: "octave", cents: [0, 200, 400, 500, 700, 900, 1000],
+      frame: 500, upperCore: 700, join: "disjunct",
+      tetra: { lower: { inner: [200, 400] }, upper: { inner: [200, 300] } },
+      note: "下 0-200-400-500・上 0-200-300-500。ケルト系のパイプ音楽、ニューファンドランドの舞曲、メキシコ湾岸のソン（son jarocho）の一部に見られる旋法（仮説）。",
+      source: ""
+    },
+    {
+      name: "ハルダンゲル", mode: "octave", cents: [0, 200, 350, 500, 700, 850, 1050],
+      frame: 500, upperCore: 700, join: "disjunct",
+      tetra: { lower: { inner: [200, 350] }, upper: { inner: [150, 350] } },
+      note: "ノルウェーのハルダンゲル・フィドル音楽に見られる中立3度（≈350c）・中立6度・中立7度の近似。下テトラコルドは Rast jins と同型になる（偶然の一致か海路の名残かは未検証＝仮説）。",
+      source: ""
+    },
+
     /* ── 物理律（枠外・自然数や比から生える音列）────────────────
        degree の当て方は従来実装と同一にしてある（音高が変わらない）。   */
     {
@@ -238,7 +261,14 @@
     // 環流・停滞
     { id: "npg-e",      name: "北太平洋環流東",  lat: 38.0,  lon: -160.0, scale: "黄金比律",           note: "外洋。陸の文化から切れた場所として、オクターブと整合しない律を置く（仮説）。", source: "" },
     { id: "npg-n",      name: "北太平洋環流北",  lat: 45.0,  lon: 175.0, scale: "倍音列",              note: "外洋。倍音列＝物理だけが残る場所（仮説）。", source: "" },
-    { id: "stagnant",   name: "停滞域",         lat: 34.0,  lon: 138.0, scale: "ホールトーン",         note: "赤潮＝停滞と同化。ここでは cents が12平均律グリッドへ吸着していく。", source: "" }
+    { id: "stagnant",   name: "停滞域",         lat: 34.0,  lon: 138.0, scale: "ホールトーン",         note: "赤潮＝停滞と同化。ここでは cents が12平均律グリッドへ吸着していく。", source: "" },
+    // 湾流（メキシコ湾流 → 北大西洋海流）
+    { id: "gulf-mexico",  name: "メキシコ湾",       lat: 24.0, lon: -87.0, scale: "ミクソリディア", note: "湾流の源。ユカタン海峡から流れ込む。メキシコ湾岸のソン系旋法を仮に置く（仮説）。", source: "" },
+    { id: "florida",      name: "フロリダ海峡",     lat: 25.0, lon: -80.0, scale: "ブルース",       note: "流れが最も狭く速い。米南部のブルース（枠外の 600c を含む）。", source: "" },
+    { id: "hatteras",     name: "ハッテラス岬",     lat: 35.2, lon: -75.5, scale: "ドリアン",       note: "湾流が大陸棚を離れて外洋へ出る地点。アパラチアの旋法的バラッド（仮説）。", source: "" },
+    { id: "newfoundland", name: "ニューファンドランド", lat: 47.5, lon: -52.7, scale: "ミクソリディア", note: "ラブラドル海流（寒流）と出会う潮目でもある。アイルランド系入植地の舞曲。", source: "" },
+    { id: "ireland-w",    name: "アイルランド西岸", lat: 53.0, lon: -10.0, scale: "ドリアン",       note: "北大西洋海流として到着。sean-nós／トラッドの旋法（仮説）。", source: "" },
+    { id: "norway-sea",   name: "ノルウェー海",     lat: 60.4, lon:  5.0,  scale: "ハルダンゲル",   note: "海流の終端。中立3度を持つフィドル音楽。", source: "" }
   ];
 
   /* ── 航路 ──────────────────────────────────────────────────────
@@ -298,6 +328,13 @@
       source: ""
     },
     {
+      id: "gulfstream", name: "湾流",
+      path: ["gulf-mexico", "florida", "hatteras", "newfoundland", "ireland-w", "norway-sea"],
+      speed: 250, seasonal: false, panFn: "gulf",
+      note: "メキシコ湾流から北大西洋海流へ。フロリダ海峡で狭く速く、ハッテラス岬で離岸し、ニューファンドランド沖で寒流と出会い、アイルランドを経てノルウェー海で終わる。実流速は最大 2.5 m/s だが speed は「音階が動く速さ」の目安。ブルースの枠外音 600c がドリアン／ミクソリディアの骨格の上を運ばれていく（仮説）。",
+      source: ""
+    },
+    {
       id: "akashio", name: "赤潮", path: ["stagnant"],
       speed: 0, seasonal: false, panFn: "akashio", homogenizing: true,
       note: "停滞と同化。伝播せず、代わりに全層の cents が12平均律グリッドへ吸着していく（均質化圧）。吸着率は homogenize パラメータ。",
@@ -337,7 +374,7 @@
   };
 
   root.OCEAN_DATA = {
-    version: 2,
+    version: 3,
     time: TIME,
     constants: { justFourthCents: C_JUST_4TH, justFifthCents: C_JUST_5TH, phi: PHI },
     tetrachords: TETRACHORDS,
