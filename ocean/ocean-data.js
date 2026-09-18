@@ -19,6 +19,14 @@
      "gen"    … 式で生成する。kind:"harmonic"（倍音列 n倍）/
                  kind:"ratio-power"（比の累乗）
 
+   ■ individuality（旋律型・調律の個体差）
+     tuning … 調律の個体差（cents, σ）。楽団ごと・歌い手ごとに音高がどれだけ違うか。
+              ガムランの embat、無伴奏民謡の音高の揺れ、中立音程の位置の違い。
+     melody … 旋律型の縛り（degree の広がり）。小さいほど型（seyir・토리・pakad）に縛られ、
+              大きいほど音階内を自由に動く。
+     処理側はこれを 1/f（ピンク）ゆらぎで時間展開する＝白い震えではなく、長い相関を
+     持って「ゆっくり漂い、時々大きく逸れる」。個体が入れ替わるような揺れ。
+
    ■ テトラコルド（小泉文夫）
      核音（動きにくい枠）＝ 0 と frame（完全4度 ≒ 498c）と upperCore（完全5度）と 1200。
      可動音（inner）＝ 枠の内側。ここが変異し、混交する。
@@ -63,91 +71,105 @@
      tetra は分解できたものだけ。できないものは null＋note に理由。         */
   var SCALES = [
     {
-      name: "ペンタトニック", mode: "octave", cents: [0, 200, 400, 700, 900],
+      name: "ペンタトニック", mode: "octave",
+      individuality: { tuning: 8, melody: 3, note: "記譜上の五音。地域差は小さい扱い" }, cents: [0, 200, 400, 700, 900],
       frame: null, tetra: null,
       note: "完全5度(700c)は持つが完全4度(500c)の核音を欠くため、テトラコルド分解不能＝枠外扱い。ヨナ抜き長音階。",
       source: ""
     },
     {
-      name: "ヒラジョシ", mode: "octave", cents: [0, 200, 300, 700, 800],
+      name: "ヒラジョシ", mode: "octave",
+      individuality: { tuning: 8, melody: 3, note: "箏の調弦は12平均律近似" }, cents: [0, 200, 300, 700, 800],
       frame: null, tetra: null,
       note: "この綴りは平調子の一異名（0-200-300-700-800）。500c の核音を欠くため枠外。都節系の平調子（0-100-500-700-800）とは別形。",
       source: ""
     },
     {
-      name: "インセン", mode: "octave", cents: [0, 100, 500, 700, 1000],
+      name: "インセン", mode: "octave",
+      individuality: { tuning: 8, melody: 3, note: "" }, cents: [0, 100, 500, 700, 1000],
       frame: 500, upperCore: 700, join: "disjunct",
       tetra: { lower: { inner: [100] }, upper: { inner: [300] } },
       note: "下が都節(100c)・上が民謡(300c)の混成テトラコルド。上下で可動音位置が違う＝すでに混交した形（仮説）。",
       source: ""
     },
     {
-      name: "都節", mode: "octave", cents: [0, 100, 500, 700, 800],
+      name: "都節", mode: "octave",
+      individuality: { tuning: 8, melody: 2.5, note: "三味線・箏の調弦。都市の芸能は型に縛られる" }, cents: [0, 100, 500, 700, 800],
       frame: 500, upperCore: 700, join: "disjunct",
       tetra: { lower: { inner: [100] }, upper: { inner: [100] } },
       note: "上下ともに都節テトラコルド。frame が 500 なのは12平均律近似のため（純正の完全4度は 498.045c）。",
       source: "小泉文夫（1958）"
     },
     {
-      name: "ラガ・バイラヴ", mode: "octave", cents: [0, 100, 400, 500, 700, 800, 1100],
+      name: "ラガ・バイラヴ", mode: "octave",
+      individuality: { tuning: 15, melody: 2, note: "シュルティの揺れ。ラーガは旋律型（pakad）に強く縛られる" }, cents: [0, 100, 400, 500, 700, 800, 1100],
       frame: 500, upperCore: 700, join: "disjunct",
       tetra: { lower: { inner: [100, 400] }, upper: { inner: [100, 400] } },
       note: "下半・上半ともに 0-100-400-500＝アラブの Hijaz と同型。インド洋航路での構造の共有（仮説）。",
       source: ""
     },
     {
-      name: "ラガ・ヤマン", mode: "octave", cents: [0, 200, 400, 600, 700, 900, 1100],
+      name: "ラガ・ヤマン", mode: "octave",
+      individuality: { tuning: 15, melody: 2, note: "同上" }, cents: [0, 200, 400, 600, 700, 900, 1100],
       frame: null, upperCore: 700, tetra: null,
       note: "下半が 0-200-400-600（増4度枠）。完全4度の核音を持たないため枠外。リディア的。",
       source: ""
     },
     {
-      name: "マカーム・ラスト", mode: "octave", cents: [0, 200, 350, 500, 700, 900, 1050],
+      name: "マカーム・ラスト", mode: "octave",
+      individuality: { tuning: 16, melody: 2, note: "第3音は 340〜360c の幅。seyir（旋律の道筋）に縛られる" }, cents: [0, 200, 350, 500, 700, 900, 1050],
       frame: 500, upperCore: 700, join: "disjunct",
       tetra: { lower: { inner: [200, 350] }, upper: { inner: [200, 350] } },
       note: "Rast jins を上下に積んだ形。第3音 350c は近似で、実演は 340〜360c の幅を持つ（地域差）。",
       source: ""
     },
     {
-      name: "ペロッグ", mode: "octave", cents: [0, 100, 300, 700, 800],
+      name: "ペロッグ", mode: "octave",
+      individuality: { tuning: 38, melody: 2.5, note: "楽団ごとの embat。最も個体差が大きい部類" }, cents: [0, 100, 300, 700, 800],
       frame: null, tetra: null, embat: true,
       note: "ガムランのペロッグ近似。楽団ごとに調律(embat)が異なり単一の正解値が存在しない。完全4度核音を欠く枠外ノード。",
       source: ""
     },
     {
-      name: "スレンドロ", mode: "octave", cents: [0, 240, 480, 720, 960],
+      name: "スレンドロ", mode: "octave",
+      individuality: { tuning: 38, melody: 2.5, note: "同上" }, cents: [0, 240, 480, 720, 960],
       frame: null, tetra: "slendro-approx", embat: true,
       note: "1オクターブ5等分割(240c)の近似。実際の楽団調律は等分割ではなく、楽団ごとに違う。枠外ノード。",
       source: ""
     },
     {
-      name: "ブルース", mode: "octave", cents: [0, 300, 500, 600, 700, 1000],
+      name: "ブルース", mode: "octave",
+      individuality: { tuning: 20, melody: 3, note: "ブルーノートは奏者ごとに位置が違う" }, cents: [0, 300, 500, 600, 700, 1000],
       frame: 500, upperCore: 700, join: "disjunct",
       tetra: { lower: { inner: [300] }, upper: { inner: [300] }, extra: [600] },
       note: "上下ともに民謡テトラコルド(300c)＋核音の外に 600c(ブルーノート)。extra は枠の外側なので最も変異しやすい音。",
       source: ""
     },
     {
-      name: "ハーモニックマイナー", mode: "octave", cents: [0, 200, 300, 500, 700, 800, 1100],
+      name: "ハーモニックマイナー", mode: "octave",
+      individuality: { tuning: 8, melody: 3, note: "西洋記譜" }, cents: [0, 200, 300, 500, 700, 800, 1100],
       frame: 500, upperCore: 700, join: "disjunct",
       tetra: { lower: { inner: [200, 300] }, upper: { inner: [100, 400] } },
       note: "下が Nahawand(200-300)、上が Hijaz(100-400)。上下で別文化の jins が同居する形。",
       source: ""
     },
     {
-      name: "ホールトーン", mode: "octave", cents: [0, 200, 400, 600, 800, 1000],
+      name: "ホールトーン", mode: "octave",
+      individuality: { tuning: 4, melody: 4, note: "等分割＝個体差なし" }, cents: [0, 200, 400, 600, 800, 1000],
       frame: null, tetra: null,
       note: "1オクターブ6等分割。完全4度・完全5度の核音をどちらも持たない完全な枠外。",
       source: ""
     },
     {
-      name: "アイヌ", mode: "octave", cents: [0, 200, 400, 700, 900, 1100],
+      name: "アイヌ", mode: "octave",
+      individuality: { tuning: 30, melody: 1.2, note: "固定の基準音を持たない。歌い手ごと・歌ごとに音高が違い、旋律型は狭い" }, cents: [0, 200, 400, 700, 900, 1100],
       frame: null, upperCore: 700, tetra: null,
       note: "この6音並びは近似。アイヌのウポポ／ウコウク等の実際の旋律は固定音階より旋律型で捉えるべきで、単一音階への還元は仮説にすぎない。",
       source: ""
     },
     {
-      name: "琉球音階", mode: "octave", cents: [0, 400, 500, 700, 1100],
+      name: "琉球音階", mode: "octave",
+      individuality: { tuning: 12, melody: 2.5, note: "三線の調弦（ちんだみ）は奏者ごと" }, cents: [0, 400, 500, 700, 1100],
       frame: 500, upperCore: 700, join: "disjunct",
       tetra: { lower: { inner: [400] }, upper: { inner: [400] } },
       note: "上下ともに琉球テトラコルド(400c)。核音 0-500-700-1200 は都節・律・民謡と共通で、可動音だけが 400 に寄る。",
@@ -156,14 +178,16 @@
 
     /* ── 日本の残り2種（小泉のテトラコルドをそのまま上下に積んだ形）──── */
     {
-      name: "民謡音階", mode: "octave", cents: [0, 300, 500, 700, 1000],
+      name: "民謡音階", mode: "octave",
+      individuality: { tuning: 14, melody: 2.5, note: "無伴奏の民謡は歌い手ごとに音高が動く" }, cents: [0, 300, 500, 700, 1000],
       frame: 500, upperCore: 700, join: "disjunct",
       tetra: { lower: { inner: [300] }, upper: { inner: [300] } },
       note: "上下とも民謡テトラコルド(300c)。わらべうた・民謡の基本形（小泉）。九州・三陸・山陰の民謡に広く見られる。",
       source: "小泉文夫（1958）"
     },
     {
-      name: "律音階", mode: "octave", cents: [0, 200, 500, 700, 900],
+      name: "律音階", mode: "octave",
+      individuality: { tuning: 8, melody: 2, note: "雅楽は型に厳格" }, cents: [0, 200, 500, 700, 900],
       frame: 500, upperCore: 700, join: "disjunct",
       tetra: { lower: { inner: [200] }, upper: { inner: [200] } },
       note: "上下とも律テトラコルド(200c)。雅楽の律旋・声明・追分系の民謡。",
@@ -172,35 +196,40 @@
 
     /* ── 東アジア・東南アジア・インド洋（航路のノードに合わせて追加）──── */
     {
-      name: "清楽音階", mode: "octave", cents: [0, 200, 400, 500, 700, 900, 1100],
+      name: "清楽音階", mode: "octave",
+      individuality: { tuning: 10, melody: 3, note: "三分損益と12平均律の間" }, cents: [0, 200, 400, 500, 700, 900, 1100],
       frame: 500, upperCore: 700, join: "disjunct",
       tetra: { lower: { inner: [200, 400] }, upper: { inner: [200, 400] } },
       note: "中国の七声のうち清楽（清角＋変宮）。宮商角清角徴羽変宮。福建・浙江の沿岸民間音楽（南音の管門を含む）で広く用いられる12平均律近似。実演は三分損益（ピタゴラス系）に近い。",
       source: ""
     },
     {
-      name: "ユクチャベギ", mode: "octave", cents: [0, 300, 500, 700, 780],
+      name: "ユクチャベギ", mode: "octave",
+      individuality: { tuning: 26, melody: 1.5, note: "시김새の幅広い揺れ。토리は型に強く縛られる" }, cents: [0, 300, 500, 700, 780],
       frame: 500, upperCore: 700, join: "disjunct",
       tetra: { lower: { inner: [300] }, upper: { inner: [80] } },
       note: "朝鮮半島南西部（全羅道）の육자배기토리。核音 mi–la–si に、si から下行する시김새の音（do' より低い、780c 前後）が加わる。小泉の枠組みで見ると下＝民謡・上＝都節より狭い可動音。近似。",
       source: ""
     },
     {
-      name: "ラガ・カマージ", mode: "octave", cents: [0, 200, 400, 500, 700, 900, 1000],
+      name: "ラガ・カマージ", mode: "octave",
+      individuality: { tuning: 15, melody: 2, note: "シュルティの揺れ" }, cents: [0, 200, 400, 500, 700, 900, 1000],
       frame: 500, upperCore: 700, join: "disjunct",
       tetra: { lower: { inner: [200, 400] }, upper: { inner: [200, 300] } },
       note: "Khamaj thaat（komal ni）。ベンガルの舟歌 bhatiyali、Rabindra sangeet に多い。cents はミクソリディアと同じだが、ここではインドの名で置く。",
       source: ""
     },
     {
-      name: "マカーム・ヒジャーズ", mode: "octave", cents: [0, 100, 400, 500, 700, 800, 1100],
+      name: "マカーム・ヒジャーズ", mode: "octave",
+      individuality: { tuning: 16, melody: 2, note: "増2度の幅は地域差が大きい" }, cents: [0, 100, 400, 500, 700, 800, 1100],
       frame: 500, upperCore: 700, join: "disjunct",
       tetra: { lower: { inner: [100, 400] }, upper: { inner: [100, 400] } },
       note: "Hijaz jins を上下に積んだ形。ハドラマウト（イエメン）出身のアラブ商人がマラッカに持ち込んだ zapin・ghazal Melayu の旋法（仮説）。cents はラガ・バイラヴと同じ＝海路で繋がる同型。",
       source: ""
     },
     {
-      name: "ホイ・オアン", mode: "octave", cents: [0, 350, 500, 700, 1050],
+      name: "ホイ・オアン", mode: "octave",
+      individuality: { tuning: 22, melody: 2, note: "中立3度・7度の位置が奏者ごと" }, cents: [0, 350, 500, 700, 1050],
       frame: 500, upperCore: 700, join: "disjunct",
       tetra: { lower: { inner: [350] }, upper: { inner: [350] } },
       note: "ベトナム南部（メコンデルタの đờn ca tài tử）の hơi Oán。第3音・第7音が中立音程（≈350c）に上ずる。上下同型のテトラコルド。近似。",
@@ -208,19 +237,22 @@
     },
     {
       name: "パシブツブツ", mode: "octave",
+      individuality: { tuning: 30, melody: 1, note: "声部が連続的に上昇する。到達点も回ごとに違う" },
       cents: [0, 1200 * Math.log2(9 / 8), 1200 * Math.log2(5 / 4), 1200 * Math.log2(3 / 2), 1200 * Math.log2(7 / 4)],
       frame: null, upperCore: C_JUST_5TH, tetra: null,
       note: "台湾ブヌン族の八部合音 pasibutbut。倍音列（第8〜14倍音）を目標に声部が少しずつ上昇する。ここでは到達点の倍音 8:9:10:12:14 をオクターブに畳んだ近似。完全4度を持たないので枠外。",
       source: "黒澤隆朝（1943）録音／許常惠"
     },
     {
-      name: "クリンタン", mode: "octave", cents: [0, 220, 460, 720, 940],
+      name: "クリンタン", mode: "octave",
+      individuality: { tuning: 36, melody: 2, note: "楽団ごとの調律" }, cents: [0, 220, 460, 720, 940],
       frame: null, tetra: null, embat: true,
       note: "フィリピン南部（マギンダナオ／マラナオ）のゴング列 kulintang。非等分の五音で、調律は楽団ごとに違う（ガムランの embat と同じ性格）。数値は近似。",
       source: ""
     },
     {
-      name: "オリ", mode: "octave", cents: [0, 200, 300, 500],
+      name: "オリ", mode: "octave",
+      individuality: { tuning: 32, melody: 1, note: "基準音なし・極めて狭い旋律型" }, cents: [0, 200, 300, 500],
       frame: null, tetra: null,
       note: "ハワイ／タヒチの接触以前の詠唱（oli / himene の古層）。基準音とその上下の隣接音、下方の4度への落ちだけで歌われる狭い音域。七音の音階が東端で「詠唱」に還元される到達点として置く。近似。",
       source: ""
@@ -228,21 +260,24 @@
 
     /* ── 大西洋（湾流の航路のために追加）──────────────────────── */
     {
-      name: "ドリアン", mode: "octave", cents: [0, 200, 300, 500, 700, 900, 1000],
+      name: "ドリアン", mode: "octave",
+      individuality: { tuning: 10, melody: 3, note: "ケルト系の実演は音程が緩い" }, cents: [0, 200, 300, 500, 700, 900, 1000],
       frame: 500, upperCore: 700, join: "disjunct",
       tetra: { lower: { inner: [200, 300] }, upper: { inner: [200, 300] } },
       note: "上下ともに 0-200-300-500（＝アラブの Nahawand と同型）。アイルランド／アパラチアの旋法的民謡に多い。ケルト系の実演は6音・5音の核に還元されることが多く、7音への還元は仮説。",
       source: ""
     },
     {
-      name: "ミクソリディア", mode: "octave", cents: [0, 200, 400, 500, 700, 900, 1000],
+      name: "ミクソリディア", mode: "octave",
+      individuality: { tuning: 10, melody: 3, note: "" }, cents: [0, 200, 400, 500, 700, 900, 1000],
       frame: 500, upperCore: 700, join: "disjunct",
       tetra: { lower: { inner: [200, 400] }, upper: { inner: [200, 300] } },
       note: "下 0-200-400-500・上 0-200-300-500。ケルト系のパイプ音楽、ニューファンドランドの舞曲、メキシコ湾岸のソン（son jarocho）の一部に見られる旋法（仮説）。",
       source: ""
     },
     {
-      name: "ハルダンゲル", mode: "octave", cents: [0, 200, 350, 500, 700, 850, 1050],
+      name: "ハルダンゲル", mode: "octave",
+      individuality: { tuning: 22, melody: 2, note: "中立音程の位置が奏者ごと。舞曲型に縛られる" }, cents: [0, 200, 350, 500, 700, 850, 1050],
       frame: 500, upperCore: 700, join: "disjunct",
       tetra: { lower: { inner: [200, 350] }, upper: { inner: [150, 350] } },
       note: "ノルウェーのハルダンゲル・フィドル音楽に見られる中立3度（≈350c）・中立6度・中立7度の近似。下テトラコルドは Rast jins と同型になる（偶然の一致か海路の名残かは未検証＝仮説）。",
@@ -252,13 +287,15 @@
     /* ── 物理律（枠外・自然数や比から生える音列）────────────────
        degree の当て方は従来実装と同一にしてある（音高が変わらない）。   */
     {
-      name: "倍音列", mode: "gen", gen: { kind: "harmonic" },
+      name: "倍音列", mode: "gen",
+      individuality: { tuning: 2, melody: 4, note: "物理。個体差なし" }, gen: { kind: "harmonic" },
       frame: null, tetra: null,
       note: "第 n 倍音＝基音の n 倍。degree i → 比 (i+1)。オクターブに折り返さず上に伸びる。",
       source: ""
     },
     {
       name: "純正律", mode: "octave",
+      individuality: { tuning: 2, melody: 4, note: "" },
       cents: [0, 1200 * Math.log2(9 / 8), 1200 * Math.log2(5 / 4), 1200 * Math.log2(4 / 3),
               1200 * Math.log2(3 / 2), 1200 * Math.log2(5 / 3), 1200 * Math.log2(15 / 8)],
       frame: C_JUST_4TH, upperCore: C_JUST_5TH, join: "disjunct",
@@ -268,13 +305,15 @@
       source: ""
     },
     {
-      name: "黄金比律", mode: "gen", gen: { kind: "ratio-power", ratio: PHI, exponentStep: 0.45 },
+      name: "黄金比律", mode: "gen",
+      individuality: { tuning: 2, melody: 4, note: "" }, gen: { kind: "ratio-power", ratio: PHI, exponentStep: 0.45 },
       frame: null, tetra: null,
       note: "degree i → φ^(0.45 i)。1音あたり約 374.89c。オクターブと整合しない＝どの核音も持たない。",
       source: ""
     },
     {
       name: "ピタゴラス律", mode: "octave",
+      individuality: { tuning: 2, melody: 4, note: "" },
       cents: (function () {
         var f = 1, raw = [];
         for (var i = 0; i < 12; i++) { raw.push(f); f *= 1.5; while (f >= 2) f /= 2; }
@@ -287,6 +326,7 @@
     },
     {
       name: "フィボナッチ", mode: "abs",
+      individuality: { tuning: 2, melody: 4, note: "" },
       cents: (function () {
         var fib = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377], base = fib[2];
         var out = [];
@@ -446,7 +486,7 @@
   };
 
   root.OCEAN_DATA = {
-    version: 5,
+    version: 6,
     time: TIME,
     constants: { justFourthCents: C_JUST_4TH, justFifthCents: C_JUST_5TH, phi: PHI },
     tetrachords: TETRACHORDS,

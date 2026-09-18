@@ -119,6 +119,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:9px;
         <div class="ph">揺 ら ぎ ─ 音 階 内 の 声 の 入 れ 替 え</div>
         <div class="body">
           <div class="row">
+            <span class="k">個体差</span>
+            <input type="range" id="individuality" min="0" max="100" value="60">
+            <span class="val" id="individualityV">60</span>
+          </div>
+          <div class="row">
             <span class="k">転調速</span>
             <input type="range" id="drift" min="0" max="200" value="60">
             <span class="val" id="driftV">60</span>
@@ -301,6 +306,20 @@ function mulberry32(a){
 function rngFor(name, index){
   return mulberry32(hashStr(String(P.seed) + "/" + name + "/" + String(index)) | 0);
 }
+/* ── 1/f（ピンク）ゆらぎ ──────────────────────────
+   Voss-McCartney：行 r は 2^r カウントごとに値を引き直す。行を足すと 1/f。
+   値は seed と (系列名, 行, 何回目) だけから決まるので、同じカウンタなら同じ値。
+   白い震えではなく、ゆっくり漂って時々大きく逸れる＝個体が入れ替わるような揺れ。 */
+function pinkAt(streamName, count, rows){
+  var n = rows || 8, sum = 0;
+  for(var r=0; r<n; r++){
+    var idx = Math.floor(count / (1 << r));
+    var R = rngFor("pink/" + streamName + "/" + r, idx);
+    sum += R() * 2 - 1;
+  }
+  return sum / Math.sqrt(n);          // σ ≈ 0.58、およそ -1.7..1.7
+}
+
 // 範囲つきの引き（読みやすさのため）
 function rr(R, lo, hi){ return lo + R() * (hi - lo); }
 function ri(R, n){ return Math.floor(R() * n); }
@@ -641,6 +660,7 @@ var P = {
   drift: 60,                       // 音階内ドリフトの倍率（0-200）
   currentAuto: true,               // true=航路の panFn を自動適用／false=潮流セレクタで上書き
   seed: 20260910,                  // 追跡可能性：音楽的決定の乱数種（preset に保存される）
+  individuality: 60,               // 旋律型・調律の個体差の効き 0-100（1/f ゆらぎで時間展開）
 
   // 和音化：各 voice を K 本の sine の和音にする（1〜4）
   chordSize: 3,
@@ -827,6 +847,20 @@ function partialCents(shape, scale, degree, k){
   return centsAt(scale, degree);
 }
 
+// 音階の個体差データ。無ければ控えめな既定。
+function individualityOf(scale){
+  var sc = getScale(scale);
+  var ind = sc.individuality || (sc.mutatedFrom && SCALE_BY_NAME[baseScaleName(sc.mutatedFrom)]
+              ? SCALE_BY_NAME[baseScaleName(sc.mutatedFrom)].individuality : null);
+  // 変異後・混合後の音階は元の名前から引く
+  if(!ind && sc.name){
+    var base = SCALE_BY_NAME[baseScaleName(sc.name)];
+    if(base && base.individuality) ind = base.individuality;
+  }
+  return ind || { tuning: 10, melody: 3 };
+}
+function individuality01(){ return Math.max(0, Math.min(1, (P.individuality != null ? P.individuality : 0) / 100)); }
+
 function chordSizeOf(){
   return Math.max(1, Math.min(4, Math.round(P.chordSize)));
 }
@@ -855,7 +889,7 @@ function applyVoiceChord(ocsName, voiceIdx, timeConst){
       var scale = (pt.origin && pt.origin.scale) ? pt.origin.scale : layerScaleOf(ocsName);
       var cents = homogenizeCents(partialCents(sh, scale, v.degree, k));
       pt.cents = cents;
-      pt.osc.frequency.setTargetAtTime(centsToFreq(rf, cents, 0), now, tc);
+      pt.osc.frequency.setTargetAtTime(centsToFreq(rf, cents + (pt.pink || 0), 0), now, tc);
     }
     // ゲインも必ず時定数付きで動かす（chordSize 変更時のクリック防止）
     pt.gain.gain.setTargetAtTime(on ? g : 0, now, 0.25);
@@ -891,6 +925,32 @@ function applyOcsLevels(){
   applyAmbient();
 }
 
+/* ── 調律の個体差（1/f）────────────────────────────
+   partial ごとに独立したピンク系列を持ち、由来音階の tuning（σ cents）で
+   振幅を決める。ガムランは大きく漂い、倍音列はほとんど動かない。            */
+var PINKT = 0;   // 0.5 秒ごとに +1（演奏開始で 0 に戻る）
+function applyIndividuality(){
+  if(!ac || !running) return;
+  var g = individuality01();
+  var now = ac.currentTime;
+  ["ds","oki","kg"].forEach(function(name){
+    var sec = OCS[name]; if(!sec) return;
+    var rf = ocsRoot(name), K = chordSizeOf();
+    sec.voices.forEach(function(v, vi){
+      for(var k=0; k<K && k<v.parts.length; k++){
+        var pt = v.parts[k];
+        if(pt.cents == null) continue;
+        var scale = (pt.origin && pt.origin.scale) ? pt.origin.scale : layerScaleOf(name);
+        var sigma = individualityOf(scale).tuning * g;
+        // 核音は動きにくい（可動音の 1/3）
+        if(isCoreCents(scale, pt.cents, 8)) sigma *= 0.33;
+        pt.pink = pinkAt(name + ":" + vi + ":" + k, PINKT, 8) * sigma;
+        pt.osc.frequency.setTargetAtTime(centsToFreq(rf, pt.cents + pt.pink, 0), now, 0.8);
+      }
+    });
+  });
+}
+
 /* ── 音階内ドリフト ─────────────────────────────
    各セクションが音階の中で和音を時々組み替える。深海は遅い、
    沖は中庸、海岸は速い。drift スライダで全体倍率。           */
@@ -910,13 +970,21 @@ function driftTick(){
       var n = section.voices.length;
       var R = rngFor("drift", name + ":" + (DRIFTN[name]++));
       var voiceIdx = ri(R, n);
-      var degree   = ri(R, n * 3);             // 三オクターブぶんの degree
+      // 旋律型：中心が 1/f で漂い、その周りを melody（型の広がり）だけ動く。
+      // 型に縛られた文化（ユクチャベギ・オリ）は狭く、自由な物理律は広い。
+      // pink のカウンタは drift の回数（時計ではない）＝ログが再現する。
+      var maxD   = n * 3 - 1;
+      var indv   = individualityOf(layerScaleOf(name));
+      var center = (pinkAt("melody:" + name, DRIFTN[name], 6) / 1.7 + 1) / 2 * maxD;
+      var spread = indv.melody * (0.4 + 0.6 * individuality01()) * 1.5;
+      var degree = Math.max(0, Math.min(maxD, Math.round(center + (R() * 2 - 1) * spread)));
       var v = section.voices[voiceIdx];
       v.degree = degree;
       applyVoiceChord(name, voiceIdx, rr(R, 1.0, 1.6));
       // ログには seed から決まる「決定」だけを残す（実音高は層の音階＝
       // arrive / morph-done の履歴と degree から復元できる）。
       EVLOG.push("drift", { ocs:name, n:DRIFTN[name], voice:voiceIdx, degree:degree,
+                            center:+center.toFixed(2), spread:+spread.toFixed(2),
                             shape:chordShapeOf(name), K:chordSizeOf() });
       section._nextRotate = now + 1 / Math.max(0.01, localRate);
     }
@@ -2321,7 +2389,10 @@ function currentTick(){
   akashioTick();
   voyageTick();
   // 潮位 → 海岸の level / HP / 非線形（1秒に数回でよい）
-  if(TICK.current % 6 === 0){ applyTideToShore(); if(TIDEST.amp > 0) applyOcsLevels(); }
+  if(TICK.current % 6 === 0){
+    applyTideToShore(); if(TIDEST.amp > 0) applyOcsLevels();
+    PINKT++; applyIndividuality();
+  }
   var t = ac.currentTime - t0;
   var p = currentPan(t);
   masterPan.pan.setTargetAtTime(p, ac.currentTime, 0.15);
@@ -2712,7 +2783,7 @@ async function run(){
   if(ac.state === "suspended") await ac.resume();
   running = true; t0 = ac.currentTime;
   // 乱数系列の添字とログを巻き戻す。これで「同一 seed・同一操作」が同一結果になる。
-  TICK.ripples = 0; TICK.current = 0; TICK.drift = 0;
+  TICK.ripples = 0; TICK.current = 0; TICK.drift = 0; PINKT = 0;
   DRIFTN.ds = 0; DRIFTN.oki = 0; DRIFTN.kg = 0;
   ["ds","oki","kg"].forEach(function(nm){ if(OCS[nm]) OCS[nm]._nextRotate = 0; });
   EVLOG.clear();
@@ -2994,7 +3065,7 @@ function drawRulers(r){
       for(var k=0; k<K && k<v.parts.length; k++){
         var pt = v.parts[k];
         if(pt.cents == null) continue;
-        var cmod = ((pt.cents % 1200) + 1200) % 1200;
+        var cmod = (((pt.cents + (pt.pink || 0)) % 1200) + 1200) % 1200;
         var xx = x0 + (cmod / 1200) * w;
         var scale = (pt.origin && pt.origin.scale) ? pt.origin.scale : layerScaleOf(row.key);
         var core = isCoreCents(scale, pt.cents, 8);
@@ -3451,6 +3522,8 @@ function syncUI(){
   document.getElementById("currentDepth").value = P.currentDepth;
   document.getElementById("currentDepthV").textContent = P.currentDepth;
   document.getElementById("weatherSel").value = P.weather;
+  document.getElementById("individuality").value = P.individuality;
+  document.getElementById("individualityV").textContent = P.individuality;
   document.getElementById("drift").value = P.drift;
   document.getElementById("driftV").textContent = P.drift;
   document.getElementById("tideAmp").value = P.tideAmp;
@@ -3636,6 +3709,7 @@ function bindUI(){
   bindRange("root",          "root",          false, function(){ if(ac) applyAllOcsChords(); });
   bindRange("currentDepth",  "currentDepth",  false);
   bindRange("drift",         "drift",         false);
+  bindRange("individuality", "individuality", false, function(){ if(ac) applyIndividuality(); });
   bindRange("rain",          "rain",          false, function(){ if(ac) applyRain(); });
   bindRange("timeScale",     "timeScale",     false, function(){
     if(VOY.active) VOY.plan = voyagePlan(P.route);   // 脚の長さを再計算
@@ -3772,6 +3846,10 @@ if(DEBUG){
     softclip: function(){ return softclip; },
     CONFLUENCE: CONFLUENCE, applyConfluence: applyConfluence,
     homogenizeCents: homogenizeCents, akashioTick: akashioTick,
+    pinkAt: pinkAt, individualityOf: individualityOf, applyIndividuality: applyIndividuality,
+    pinkState: function(){ var o={}; ["ds","oki","kg"].forEach(function(n){ o[n]=OCS[n]?OCS[n].voices.map(function(v){
+      return v.parts.slice(0,chordSizeOf()).map(function(pt){ return +(pt.pink||0).toFixed(2); }); }):null; }); return o; },
+    PINKT: function(){ return PINKT; },
     seasonPhase: seasonPhase, seasonDir: seasonDir, seasonLabel: seasonLabel,
     routePan: routePan, currentPan: currentPan, ROUTE_NAMES: ROUTE_NAMES,
     exportLog: exportLog, downloadLog: downloadLog, nodeColor: nodeColor,
