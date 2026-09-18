@@ -378,7 +378,7 @@ function scaleCents(scale){
     var m = ((v % 1200) + 1200) % 1200;
     var k = m.toFixed(3);
     if(!seen[k]){ seen[k] = 1; out.push(m); }
-    if(out.length >= 24) break;
+    if(out.length >= 12) break;          // 混交で音数が爆発しないよう 12 音まで
   }
   return out.sort(function(a,b){ return a - b; });
 }
@@ -962,6 +962,18 @@ var NODE_BY_ID = {}, ROUTE_BY_ID = {};
 (DATA.nodes || []).forEach(function(n){ NODE_BY_ID[n.id] = n; });
 (DATA.routes || []).forEach(function(r){ ROUTE_BY_ID[r.id] = r; });
 var ROUTE_NAMES = (DATA.routes || []).map(function(r){ return { id:r.id, name:r.name }; });
+
+// データの整合性：ノードが参照する音階名が音階表に無ければ、無言で別の音階に
+// 落とさず console に出す（以前「民謡」「律」が黙ってペンタトニックになっていた）。
+(function checkNodeScales(){
+  var bad = (DATA.nodes || []).filter(function(n){ return n.scale && !SCALE_BY_NAME[n.scale]; });
+  if(bad.length){
+    console.warn("[ocean] 音階表に無い音階を参照しているノード:",
+      bad.map(function(n){ return n.id + "→" + n.scale; }).join(", "),
+      "（データの最初の音階に落ちます）");
+  }
+  window.__OCEAN_DATA_WARNINGS = bad.map(function(n){ return { node:n.id, scale:n.scale }; });
+})();
 
 function haversineKm(a, b){
   if(!a || !b) return 0;
@@ -2519,7 +2531,7 @@ function ensure(){
   limiter = ac.createDynamicsCompressor();
   limiter.threshold.value = -3;
   limiter.knee.value      = 3;   // 膝を狭めて -4.5dBFS 以下は完全に素通り
-  limiter.ratio.value     = 30;  // 越えた分だけ強く抑える
+  limiter.ratio.value     = 20;  // 規定上限（30 を指定すると 20 に丸められ警告が出る）
   limiter.attack.value    = 0.003;
   limiter.release.value   = 0.25;
   // リミッタの後の保険。knee(0.85) 以下は完全に素通りで、超えた分だけ

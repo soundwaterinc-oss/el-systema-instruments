@@ -154,6 +154,78 @@
       source: "小泉文夫（1958）"
     },
 
+    /* ── 日本の残り2種（小泉のテトラコルドをそのまま上下に積んだ形）──── */
+    {
+      name: "民謡音階", mode: "octave", cents: [0, 300, 500, 700, 1000],
+      frame: 500, upperCore: 700, join: "disjunct",
+      tetra: { lower: { inner: [300] }, upper: { inner: [300] } },
+      note: "上下とも民謡テトラコルド(300c)。わらべうた・民謡の基本形（小泉）。九州・三陸・山陰の民謡に広く見られる。",
+      source: "小泉文夫（1958）"
+    },
+    {
+      name: "律音階", mode: "octave", cents: [0, 200, 500, 700, 900],
+      frame: 500, upperCore: 700, join: "disjunct",
+      tetra: { lower: { inner: [200] }, upper: { inner: [200] } },
+      note: "上下とも律テトラコルド(200c)。雅楽の律旋・声明・追分系の民謡。",
+      source: "小泉文夫（1958）"
+    },
+
+    /* ── 東アジア・東南アジア・インド洋（航路のノードに合わせて追加）──── */
+    {
+      name: "清楽音階", mode: "octave", cents: [0, 200, 400, 500, 700, 900, 1100],
+      frame: 500, upperCore: 700, join: "disjunct",
+      tetra: { lower: { inner: [200, 400] }, upper: { inner: [200, 400] } },
+      note: "中国の七声のうち清楽（清角＋変宮）。宮商角清角徴羽変宮。福建・浙江の沿岸民間音楽（南音の管門を含む）で広く用いられる12平均律近似。実演は三分損益（ピタゴラス系）に近い。",
+      source: ""
+    },
+    {
+      name: "ユクチャベギ", mode: "octave", cents: [0, 300, 500, 700, 780],
+      frame: 500, upperCore: 700, join: "disjunct",
+      tetra: { lower: { inner: [300] }, upper: { inner: [80] } },
+      note: "朝鮮半島南西部（全羅道）の육자배기토리。核音 mi–la–si に、si から下行する시김새の音（do' より低い、780c 前後）が加わる。小泉の枠組みで見ると下＝民謡・上＝都節より狭い可動音。近似。",
+      source: ""
+    },
+    {
+      name: "ラガ・カマージ", mode: "octave", cents: [0, 200, 400, 500, 700, 900, 1000],
+      frame: 500, upperCore: 700, join: "disjunct",
+      tetra: { lower: { inner: [200, 400] }, upper: { inner: [200, 300] } },
+      note: "Khamaj thaat（komal ni）。ベンガルの舟歌 bhatiyali、Rabindra sangeet に多い。cents はミクソリディアと同じだが、ここではインドの名で置く。",
+      source: ""
+    },
+    {
+      name: "マカーム・ヒジャーズ", mode: "octave", cents: [0, 100, 400, 500, 700, 800, 1100],
+      frame: 500, upperCore: 700, join: "disjunct",
+      tetra: { lower: { inner: [100, 400] }, upper: { inner: [100, 400] } },
+      note: "Hijaz jins を上下に積んだ形。ハドラマウト（イエメン）出身のアラブ商人がマラッカに持ち込んだ zapin・ghazal Melayu の旋法（仮説）。cents はラガ・バイラヴと同じ＝海路で繋がる同型。",
+      source: ""
+    },
+    {
+      name: "ホイ・オアン", mode: "octave", cents: [0, 350, 500, 700, 1050],
+      frame: 500, upperCore: 700, join: "disjunct",
+      tetra: { lower: { inner: [350] }, upper: { inner: [350] } },
+      note: "ベトナム南部（メコンデルタの đờn ca tài tử）の hơi Oán。第3音・第7音が中立音程（≈350c）に上ずる。上下同型のテトラコルド。近似。",
+      source: ""
+    },
+    {
+      name: "パシブツブツ", mode: "octave",
+      cents: [0, 1200 * Math.log2(9 / 8), 1200 * Math.log2(5 / 4), 1200 * Math.log2(3 / 2), 1200 * Math.log2(7 / 4)],
+      frame: null, upperCore: C_JUST_5TH, tetra: null,
+      note: "台湾ブヌン族の八部合音 pasibutbut。倍音列（第8〜14倍音）を目標に声部が少しずつ上昇する。ここでは到達点の倍音 8:9:10:12:14 をオクターブに畳んだ近似。完全4度を持たないので枠外。",
+      source: "黒澤隆朝（1943）録音／許常惠"
+    },
+    {
+      name: "クリンタン", mode: "octave", cents: [0, 220, 460, 720, 940],
+      frame: null, tetra: null, embat: true,
+      note: "フィリピン南部（マギンダナオ／マラナオ）のゴング列 kulintang。非等分の五音で、調律は楽団ごとに違う（ガムランの embat と同じ性格）。数値は近似。",
+      source: ""
+    },
+    {
+      name: "オリ", mode: "octave", cents: [0, 200, 300, 500],
+      frame: null, tetra: null,
+      note: "ハワイ／タヒチの接触以前の詠唱（oli / himene の古層）。基準音とその上下の隣接音、下方の4度への落ちだけで歌われる狭い音域。七音の音階が東端で「詠唱」に還元される到達点として置く。近似。",
+      source: ""
+    },
+
     /* ── 大西洋（湾流の航路のために追加）──────────────────────── */
     {
       name: "ドリアン", mode: "octave", cents: [0, 200, 300, 500, 700, 900, 1000],
@@ -231,33 +303,33 @@
      scale は「その土地に残った音階」の**仮説**。出典つきの書き換えを前提とする。 */
   var NODES = [
     // 黒潮
-    { id: "luzon",      name: "ルソン",         lat: 16.0,  lon: 120.6, scale: "ペンタトニック",       note: "黒潮の源流域。オーストロネシア拡散の経由地でもある。音階割当は仮説。", source: "" },
-    { id: "taiwan",     name: "台湾",           lat: 23.7,  lon: 120.9, scale: "ペンタトニック",       note: "オーストロネシア語族の出発点とされる。原住民族の歌唱は多声で、単一音階への還元は仮説。", source: "" },
+    { id: "luzon",      name: "ルソン",         lat: 16.0,  lon: 120.6, scale: "ハーモニックマイナー",       note: "黒潮の源流域。スペイン植民期にマニラ・ガレオン経由で入った短調歌曲 kundiman（短調→長調へ転じる）を置く。海路による西洋音階の到来そのもの（仮説）。", source: "" },
+    { id: "taiwan",     name: "台湾",           lat: 23.7,  lon: 120.9, scale: "パシブツブツ",       note: "オーストロネシア語族の出発点。ブヌン族の八部合音 pasibutbut＝倍音列を目標に上昇する合唱。黒澤隆朝の1943年録音で知られる。沿岸のアミ族は五音だが、ここでは台湾固有の倍音志向を採る。", source: "" },
     { id: "ryukyu",     name: "琉球",           lat: 26.2,  lon: 127.7, scale: "琉球音階",             note: "黒潮とモンスーン航路が交わる結節点。可動音 400c。", source: "小泉文夫（1958）" },
-    { id: "kyushu-s",   name: "九州南",         lat: 31.4,  lon: 130.6, scale: "民謡",                 note: "琉球から本土へ最初に接岸する地点（仮説）。音階は民謡テトラコルド。", source: "" },
+    { id: "kyushu-s",   name: "九州南",         lat: 31.4,  lon: 130.6, scale: "民謡音階",                 note: "琉球から本土へ最初に接岸する地点。民謡テトラコルド（可動音 300c）。", source: "" },
     { id: "kii",        name: "紀伊",           lat: 33.7,  lon: 135.9, scale: "都節",                 note: "黒潮が最も陸に近づく。都節＝可動音 100c。", source: "" },
     { id: "boso",       name: "房総",           lat: 34.9,  lon: 139.9, scale: "都節",                 note: "黒潮の離岸点。ここから先は外洋へ出る（環流へ接続）。", source: "" },
     // 対馬海流
-    { id: "eastchina",  name: "東シナ海",       lat: 29.0,  lon: 125.0, scale: "マカーム・ラスト",     note: "黒潮から対馬海流が分岐する海域。大陸からの流入口として maqam 系を置く（強い仮説）。", source: "" },
-    { id: "korea-s",    name: "朝鮮半島南岸",   lat: 34.8,  lon: 128.4, scale: "律",                   note: "律＝可動音 200c。半島の平調（pyeongjo）との対応は未検証。", source: "" },
-    { id: "sanin",      name: "山陰",           lat: 35.5,  lon: 133.1, scale: "律",                   note: "対馬海流が日本海沿いに北上する経路。", source: "" },
+    { id: "eastchina",  name: "東シナ海",       lat: 29.0,  lon: 125.0, scale: "清楽音階",     note: "黒潮から対馬海流が分岐する海域。福建・浙江沿岸の七声（清楽）を大陸からの流入口として置く（仮説）。", source: "" },
+    { id: "korea-s",    name: "朝鮮半島南岸",   lat: 34.8,  lon: 128.4, scale: "ユクチャベギ",                   note: "全羅道の육자배기토리。核音 mi–la–si と下行する시김새。小泉のテトラコルドと同型の枠を持つ。", source: "" },
+    { id: "sanin",      name: "山陰",           lat: 35.5,  lon: 133.1, scale: "民謡音階",                   note: "対馬海流が日本海沿いに北上する経路。安来節・貝殻節など民謡テトラコルド。", source: "" },
     { id: "hokuriku",   name: "北陸",           lat: 36.9,  lon: 137.0, scale: "都節",                 note: "北前船の寄港地。江戸期に都節が広く流入した（仮説）。", source: "" },
     // 親潮
-    { id: "kuril",      name: "千島",           lat: 46.8,  lon: 151.8, scale: "ホールトーン",         note: "親潮の源流。枠外音階を割り当て、核音を持たない基層として扱う（仮説）。", source: "" },
+    { id: "kuril",      name: "千島",           lat: 46.8,  lon: 151.8, scale: "アイヌ",         note: "親潮の源流。千島アイヌの歌（ウポポ／ヤイサマ）は北海道と同系。単一音階への還元は仮説。", source: "" },
     { id: "hokkaido",   name: "北海道（アイヌ）", lat: 43.1, lon: 141.4, scale: "アイヌ",              note: "アイヌの歌唱は旋律型で捉えるべきで、音階への還元は仮説。", source: "" },
-    { id: "sanriku",    name: "三陸",           lat: 39.3,  lon: 141.9, scale: "民謡",                 note: "黒潮と親潮が出会う潮目の陸側。二系統の音階が同時に鳴る地点。", source: "" },
+    { id: "sanriku",    name: "三陸",           lat: 39.3,  lon: 141.9, scale: "民謡音階",                 note: "黒潮と親潮が出会う潮目の陸側。南部の民謡（民謡テトラコルド）。二系統の音階が同時に鳴る地点。", source: "" },
     // モンスーン航路
     { id: "arabia",     name: "アラビア海",     lat: 15.0,  lon: 60.0,  scale: "マカーム・ラスト",     note: "夏の南西モンスーンで東へ、冬の北東モンスーンで西へ。maqam の出発点。", source: "" },
     { id: "india-w",    name: "インド西岸",     lat: 15.3,  lon: 73.9,  scale: "ラガ・バイラヴ",       note: "下半が Hijaz と同型＝アラビア海からの構造の受け取り（仮説）。", source: "" },
-    { id: "bengal",     name: "ベンガル湾",     lat: 15.0,  lon: 88.0,  scale: "ラガ・ヤマン",         note: "増4度枠を持つ枠外音階。東進の途中で核音が失われる例として置く（仮説）。", source: "" },
-    { id: "malacca",    name: "マラッカ",       lat: 2.2,   lon: 102.2, scale: "スレンドロ",           note: "海峡＝流れが狭まり混交が最大化する地点。", source: "" },
+    { id: "bengal",     name: "ベンガル湾",     lat: 15.0,  lon: 88.0,  scale: "ラガ・カマージ",         note: "ベンガルの舟歌 bhatiyali（Khamaj）。河と海の歌が海路に乗る地点として置く（仮説）。", source: "" },
+    { id: "malacca",    name: "マラッカ",       lat: 2.2,   lon: 102.2, scale: "マカーム・ヒジャーズ",           note: "海峡＝流れが狭まり混交が最大化する地点。ハドラマウト系アラブ商人が持ち込んだ zapin の旋法（仮説）。", source: "" },
     { id: "java",       name: "ジャワ",         lat: -7.0,  lon: 110.4, scale: "ペロッグ",             note: "楽団ごとに調律(embat)が違う。単一値は持てない枠外ノード。", source: "" },
-    { id: "southchina", name: "南シナ海",       lat: 15.0,  lon: 114.0, scale: "ペンタトニック",       note: "北上して琉球へ戻る経路。", source: "" },
+    { id: "southchina", name: "南シナ海",       lat: 15.0,  lon: 114.0, scale: "ホイ・オアン",       note: "ベトナム南部（メコンデルタ）の hơi Oán＝中立3度の五音。北上して琉球へ戻る経路。", source: "" },
     // オーストロネシア拡散
-    { id: "philippines",name: "フィリピン",     lat: 12.9,  lon: 121.8, scale: "ペンタトニック",       note: "拡散の第一波。", source: "" },
+    { id: "philippines",name: "フィリピン",     lat: 12.9,  lon: 121.8, scale: "クリンタン",       note: "拡散の第一波。南部のゴング列 kulintang の非等分五音。", source: "" },
     { id: "indonesia",  name: "インドネシア",   lat: -2.5,  lon: 118.0, scale: "スレンドロ",           note: "拡散の分岐点。西へマダガスカル、東へポリネシア。", source: "" },
-    { id: "madagascar", name: "マダガスカル",   lat: -18.9, lon: 47.5,  scale: "ペンタトニック",       note: "インド洋を越えた最西端。言語学的にはボルネオ由来とされる。", source: "" },
-    { id: "polynesia",  name: "ポリネシア",     lat: -17.7, lon: -149.4, scale: "ホールトーン",        note: "最東端。核音を失った枠外音階として置く（仮説）。", source: "" },
+    { id: "madagascar", name: "マダガスカル",   lat: -18.9, lon: 47.5,  scale: "ミクソリディア",       note: "インド洋を越えた最西端。ヴァリハ（竹の筒琴）と salegy の旋法。オーストロネシア＋アフリカ＋アラブの層（仮説）。", source: "" },
+    { id: "polynesia",  name: "ポリネシア",     lat: -17.7, lon: -149.4, scale: "オリ",        note: "最東端。七音の音階が狭い詠唱（oli）へ還元される到達点として置く（仮説）。", source: "" },
     // 環流・停滞
     { id: "npg-e",      name: "北太平洋環流東",  lat: 38.0,  lon: -160.0, scale: "黄金比律",           note: "外洋。陸の文化から切れた場所として、オクターブと整合しない律を置く（仮説）。", source: "" },
     { id: "npg-n",      name: "北太平洋環流北",  lat: 45.0,  lon: 175.0, scale: "倍音列",              note: "外洋。倍音列＝物理だけが残る場所（仮説）。", source: "" },
@@ -374,7 +446,7 @@
   };
 
   root.OCEAN_DATA = {
-    version: 4,
+    version: 5,
     time: TIME,
     constants: { justFourthCents: C_JUST_4TH, justFifthCents: C_JUST_5TH, phi: PHI },
     tetrachords: TETRACHORDS,
