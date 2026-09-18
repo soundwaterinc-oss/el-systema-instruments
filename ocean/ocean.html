@@ -157,6 +157,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:9px;
             <select id="routeSel"></select>
           </div>
           <div class="row">
+            <span class="k">積み荷</span>
+            <select id="cargoSel"></select>
+          </div>
+          <div class="row">
             <label class="von"><input type="checkbox" id="voyage"> 航 海</label>
           </div>
           <div class="row">
@@ -645,6 +649,7 @@ var P = {
 
   // 航路と伝播（設計 C）。音階の出どころは航路のノードだけ。
   route: "kuroshio",               // 最初の航路。音階の出どころは航路のノードだけ
+  cargo: "",                       // 積み荷の出自（ノード id）。"" なら出発地の土地の音階を積む
   voyage: true,                    // 航海の ON/OFF（OFF＝出発地に停泊し、その土地の音階を鳴らす）
   timeScale: 100,                  // 時間圧縮（%）。100 で「1日 = 6 秒」
   retention: { ds:0.8, oki:0.5, kg:0.2 },   // 旧音階が残る割合
@@ -1046,14 +1051,22 @@ function baseScale(){
   // 航路もノードも無い異常時だけ、データの最初の音階
   return (DATA.scales && DATA.scales[0]) ? DATA.scales[0].name : "都節";
 }
+// 積み荷：P.cargo に土地（ノード id）が入っていればその土地の音階、無ければ出発地
+function cargoNodeId(){
+  if(P.cargo && NODE_BY_ID[P.cargo] && NODE_BY_ID[P.cargo].scale) return P.cargo;
+  return departureNodeId();
+}
+function cargoScale(){
+  var nd = NODE_BY_ID[cargoNodeId()];
+  return (nd && nd.scale) ? nd.scale : baseScale();
+}
 function layerScaleOf(ocsName){
   var L = VOY.layer[ocsName];
-  return (L && L.scale) ? L.scale : baseScale();
+  return (L && L.scale) ? L.scale : cargoScale();
 }
 // 停泊：出発地の土地の音階を三層に撒く
 function berth(){
-  var id = departureNodeId();
-  seedLayers(baseScale(), id, "berth");
+  seedLayers(cargoScale(), cargoNodeId(), "berth");
   if(ac) applyAllOcsChords();
 }
 
@@ -1067,6 +1080,20 @@ function seedLayers(scale, nodeId, mode){
       pt.origin = { node: nodeId || null, scale: scale }; }); });
   });
   VOY.pending.length = 0;
+}
+
+// 積み荷を積み替える：航海中なら今いる位置から、停泊中なら停泊のまま
+function reloadCargo(){
+  if(!ac) return;
+  if(VOY.active && VOY.plan){
+    var here = VOY.plan.legs[Math.min(VOY.hop, VOY.plan.legs.length-1)].from;
+    seedLayers(cargoScale(), cargoNodeId(), "cargo");
+    EVLOG.push("cargo-change", { at: here, cargoNode: cargoNodeId(), cargo: getScale(cargoScale()).name, hop: VOY.hops });
+    applyAllOcsChords();
+  } else {
+    var rr = ROUTE_BY_ID[P.route];
+    if(rr && rr.confluence) applyConfluence(); else berth();
+  }
 }
 
 // 層と partial の由来を全部消す（航路=固定に戻す＝従来動作）
@@ -1364,12 +1391,13 @@ function voyageStart(){
   VOY.pending.length = 0;
   // 積み荷＝出発地の土地の音階。選択音階は無い。以後は各ノードの土地の音階との
   // 混交と変異だけで和音が決まる（純粋に地政学的）。
-  var s0 = (NODE_BY_ID[plan.legs[0].from] && NODE_BY_ID[plan.legs[0].from].scale) || baseScale();
-  seedLayers(s0, plan.legs[0].from, "cargo");
+  var s0 = cargoScale();
+  seedLayers(s0, cargoNodeId(), "cargo");      // 由来＝積み荷の土地（出発地とは限らない）
   if(ac) applyAllOcsChords();
   EVLOG.push("voyage-start", { route:VOY.routeId, legs:plan.legs.length,
                                totalSec:+plan.totalSec.toFixed(2),
-                               startNode:plan.legs[0].from, cargo:getScale(s0).name });
+                               startNode:plan.legs[0].from, cargo:getScale(s0).name,
+                               cargoNode:cargoNodeId() });
 }
 
 function voyageStop(){
@@ -2550,6 +2578,11 @@ function ensure(){
         }
         return;
       }
+      if(n === "cargo"){
+        var cid = String(v || "");
+        P.cargo = (cid && NODE_BY_ID[cid]) ? cid : "";
+        reloadCargo(); syncUI(); return;
+      }
       if(n === "voyage"){
         P.voyage = !!(+v || v === true || v === "true");
         var rb = ROUTE_BY_ID[P.route];
@@ -2671,7 +2704,8 @@ async function run(){
   DRIFTN.ds = 0; DRIFTN.oki = 0; DRIFTN.kg = 0;
   ["ds","oki","kg"].forEach(function(nm){ if(OCS[nm]) OCS[nm]._nextRotate = 0; });
   EVLOG.clear();
-  EVLOG.push("start", { seed: P.seed, departure: departureNodeId(), baseScale: getScale(baseScale()).name, root: P.root,
+  EVLOG.push("start", { seed: P.seed, departure: departureNodeId(), cargoNode: cargoNodeId(),
+                        cargo: getScale(cargoScale()).name, root: P.root,
                         current: P.current, weather: P.weather,
                         route: P.route, voyage: !!P.voyage });
   // 航海も巻き戻す（同一 seed・同一操作で航海ログが一致するため）
@@ -2972,7 +3006,7 @@ function drawRulers(r){
         for(var k=0; k<K2 && k<v.parts.length; k++){
           var o = v.parts[k].origin || {};
           var id = o.node || "";
-          var key = id + "|" + (o.scale ? getScale(o.scale).name : getScale(baseScale()).name);
+          var key = id + "|" + (o.scale ? getScale(o.scale).name : getScale(cargoScale()).name);
           if(!tally[key]){ tally[key] = { node:id, scale:key.split("|")[1], n:0 }; order.push(key); }
           tally[key].n++;
         }
@@ -3137,8 +3171,10 @@ function mutationLine(e){
     return "　→ " + nm2 + " 補間完了 t=" + d.t + (ev.length ? "　" + ev.join(" / ") : "");
   }
   if(e.type === "voyage-start") return "── 出航 " + (ROUTE_BY_ID[d.route] ? ROUTE_BY_ID[d.route].name : d.route)
-                                     + "（" + d.legs + "脚 / " + d.totalSec.toFixed(1) + "秒 / 積み荷 " + (d.cargo || d.startScale) + "）";
-  if(e.type === "cargo-change") return "── 積み替え @" + (NODE_BY_ID[d.at] ? NODE_BY_ID[d.at].name : d.at) + "：" + d.cargo;
+                                     + "（" + d.legs + "脚 / " + d.totalSec.toFixed(1) + "秒 / 積み荷 " + (d.cargo || d.startScale)
+                                     + (d.cargoNode && NODE_BY_ID[d.cargoNode] ? "＝" + NODE_BY_ID[d.cargoNode].name + "の音階" : "") + "）";
+  if(e.type === "cargo-change") return "── 積み替え @" + (NODE_BY_ID[d.at] ? NODE_BY_ID[d.at].name : d.at) + "：" + d.cargo
+                                     + (d.cargoNode && NODE_BY_ID[d.cargoNode] ? "（" + NODE_BY_ID[d.cargoNode].name + "の音階）" : "");
   if(e.type === "voyage-end")   return "── 着（" + d.hops + "ホップ）";
   if(e.type === "voyage-loop")  return "── 環流：始点へ戻る（" + d.hops + "ホップ）";
   if(e.type === "voyage-stop")  return "── 航海停止";
@@ -3239,7 +3275,8 @@ function readout(){
   }
   document.getElementById("physh").innerHTML =
     "出発地 <b>"+(NODE_BY_ID[departureNodeId()] ? NODE_BY_ID[departureNodeId()].name : "─")+"</b>"
-    + "（"+getScale(baseScale()).name+"）・基音 <b>"+P.root+"</b> Hz<br>" +
+    + " ・積み荷 <b>"+(NODE_BY_ID[cargoNodeId()] ? NODE_BY_ID[cargoNodeId()].name : "─")+"</b>"
+    + "（"+getScale(cargoScale()).name+"）・基音 <b>"+P.root+"</b> Hz<br>" +
     "潮流 <b>"+P.current+"</b> ・天候 <b>"+P.weather+"</b><br>" +
     "うねり <b>"+(w.swell*100).toFixed(0)+"%</b> ・打 <b>"+w.chap.toFixed(1)+"</b> ・転調 <b>"+w.rotate.toFixed(2)+"</b>" +
     layerLine;
@@ -3408,6 +3445,7 @@ function syncUI(){
   document.getElementById("tideAmpV").textContent = P.tideAmp;
   var tr = document.getElementById("tideRealtime"); if(tr) tr.checked = !!P.tideRealtime;
   var rs = document.getElementById("routeSel"); if(rs) rs.value = P.route;
+  var cs2 = document.getElementById("cargoSel"); if(cs2) cs2.value = P.cargo || "";
   var vy = document.getElementById("voyage");  if(vy) vy.checked = !!P.voyage;
   document.getElementById("timeScale").value = P.timeScale;
   document.getElementById("timeScaleV").textContent = P.timeScale;
@@ -3527,6 +3565,24 @@ function bindUI(){
   trt.addEventListener("change", function(){
     P.tideRealtime = trt.checked;
     if(ac) tideUpdate();
+    readout();
+  });
+
+  // 積み荷：土地（ノード）で選ぶ。音階名では選ばない。
+  var csl = document.getElementById("cargoSel");
+  function renderCargoSel(){
+    var opts = ['<option value="">出発地の音階（航路に従う）</option>'];
+    (DATA.nodes || []).forEach(function(nd){
+      if(!nd.scale) return;
+      opts.push('<option value="'+nd.id+'"'+(nd.id===P.cargo?' selected':'')+'>'+nd.name+'（'+nd.scale+'）</option>');
+    });
+    csl.innerHTML = opts.join("");
+    csl.value = P.cargo || "";
+  }
+  renderCargoSel();
+  csl.addEventListener("change", function(){
+    P.cargo = csl.value || "";
+    reloadCargo();
     readout();
   });
 
